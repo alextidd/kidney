@@ -1,6 +1,6 @@
 # dirs
-wd <- '/lustre/scratch126/casm/team154pc/at31/kidney/'
-data_dir <- '/nfs/cancer_ref01/nst_links/live/2731'
+wd <- "/lustre/scratch126/casm/team154pc/at31/kidney/"
+data_dir <- "/nfs/cancer_ref01/nst_links/live/2731"
 setwd(wd)
 
 # libraries
@@ -20,7 +20,7 @@ library(magrittr)
 
 # read decode files
 sample_sheet <-
-    list.files('data/decode', pattern = 'xlsx', full.names = TRUE) %>%
+    list.files("data/decode", pattern = "xlsx", full.names = TRUE) %>%
     purrr::map(function(file) {
         file %>%
             readxl::read_xlsx(skip = 1) %>%
@@ -36,14 +36,14 @@ sample_sheet <-
                 sample_tumour_status = `tumour or normal?`,
                 sample_histology = tissue_histology,
                 biopsy_id = PD_ID,
-                biopsy_bam_file = paste0(data_dir, '/', biopsy_id, '/', biopsy_id, '.sample.merged.bam')
+                biopsy_bam_file = paste0(data_dir, "/", biopsy_id, "/", biopsy_id, ".sample.merged.bam")
             ) 
     }) %>%
     # collapse duplicate entries across decode files
     dplyr::bind_rows() %>%
     dplyr::distinct() %>%
     # remove problematic samples for now
-    dplyr::filter(!(sample_id %in% c('PD44966b', 'PD43948s'))) %>%
+    dplyr::filter(!(sample_id %in% c("PD44966b", "PD43948s"))) %>%
     # check if bam file exists
     dplyr::mutate(
         biopsy_bam_file = ifelse(file.exists(biopsy_bam_file), biopsy_bam_file, NA)
@@ -52,4 +52,4 @@ sample_sheet <-
 # write sample sheet for bams that exist
 sample_sheet %>%
     dplyr::filter(!is.na(biopsy_bam_file)) %>%
-    readr::write_csv('data/sample_sheet.csv')
+    readr::write_csv("data/sample_sheet.csv")

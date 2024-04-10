@@ -1,12 +1,15 @@
 #!/usr/bin/env nextflow
 
-params.sample_sheet = "/lustre/scratch126/casm/team154pc/at31/kidney/data/lcm_patient_manifest.tsv"
-params.out_dir = "out/"
+// using DSL-2
+nextflow.enable.dsl=2
 
-/*
- * Merge and index bams
- */
-process merge_bams {
+// all of the default parameters are being set in `nextflow.config`
+
+// import functions / modules / subworkflows / workflows
+include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } from 'plugin/nf-validation'
+
+// merge and index normal bams (for pseudobulk)
+process merge_normal_bams {
     tag "${meta.sample_id}"
     label "long10gb"
     publishDir "${params.out_dir}/merged_normal_bams/", mode:"copy"
@@ -28,10 +31,17 @@ process merge_bams {
         """
 }
 
-/*
- * Define the workflow
- */
+// define the workflow
 workflow {
+
+    // print help message, supply typical command line usage for the pipeline
+    if (params.help) {
+    log.info paramsHelp("nextflow run nf-chemo-trees --sample_sheet sample_sheet.csv")
+    exit 0
+    }
+
+    // print summary of supplied parameters
+    log.info paramsSummaryLog(workflow)
     
     // get metadata + bam paths
     Channel.fromPath(params.sample_sheet, checkIfExists: true)
@@ -59,5 +69,6 @@ workflow {
         [meta, biopsy_bam_file] }
     | groupTuple 
     | map { meta, biopsy_bam_file -> [meta, biopsy_bam_file.flatten()] }
-    | merge_bams
+    | merge_normal_bams
+
 }
