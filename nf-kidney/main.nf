@@ -10,25 +10,25 @@ include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } fr
 
 // merge and index normal bams (for pseudobulk)
 process merge_normal_bams {
-    tag "${meta.sample_id}"
+    tag "${meta.donor_id}"
     label "long10gb"
     publishDir "${params.out_dir}/merged_normal_bams/", mode:"copy"
 
     input:
-        tuple val(meta), path(bams)
+    tuple val(meta), path(bams)
 
     output:
-        tuple val(meta), path("${meta.sample_id}.bam"), path("${meta.sample_id}.bam.bai")
+    tuple val(meta), path("${meta.donor_id}.bam"), path("${meta.donor_id}.bam.bai")
     
     script:
-        """
-        module load samtools
-        samtools merge -f \
-            --threads ${task.cpus} \
-            ${meta.sample_id}.bam \
-            $bams
-        samtools index ${meta.sample_id}.bam
-        """
+    """
+    module load samtools
+    samtools merge -f \
+        --threads ${task.cpus} \
+        ${meta.donor_id}.bam \
+        ${bams}
+    samtools index ${meta.donor_id}.bam
+    """
 }
 
 // define the workflow
@@ -65,7 +65,7 @@ workflow {
 
     ch_tumour_statuses.normal 
     | map { meta, biopsy_bam_file ->
-        meta = meta.subMap('donor_id', 'sample_id') 
+        meta = meta.subMap('donor_id') 
         [meta, biopsy_bam_file] }
     | groupTuple 
     | map { meta, biopsy_bam_file -> [meta, biopsy_bam_file.flatten()] }

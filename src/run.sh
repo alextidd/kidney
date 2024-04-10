@@ -1,5 +1,5 @@
 #!/bin/bash
-# cd /lustre/scratch126/casm/team154pc/at31/kidney; ~/bin/jsub lsf -q week -n merge_bams  -m 2g -l log "bash nf-kidney/run.sh" | bsub
+# cd /lustre/scratch126/casm/team154pc/at31/kidney; ~/bin/jsub lsf -q week -n merge_bams  -m 2g -l log "bash src/run.sh" | bsub
 
 # merge bams
 nextflow run nf-kidney \
