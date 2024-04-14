@@ -8,7 +8,7 @@ nextflow.enable.dsl=2
 // import functions / modules / subworkflows / workflows
 include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } from 'plugin/nf-validation'
 
-// merge and index normal bams (for pseudobulk)
+// merge and index normal bams (for pseudobulk), create new sample ID (*b denoting normal)
 process merge_normal_bams {
     tag "${meta.donor_id}"
     label "long10gb"
@@ -18,16 +18,16 @@ process merge_normal_bams {
     tuple val(meta), path(bams)
 
     output:
-    tuple val(meta), path("${meta.donor_id}.bam"), path("${meta.donor_id}.bam.bai")
+    tuple val(meta), path("${meta.donor_id}_merged.bam"), path("${meta.donor_id}_merged.bam.bai")
     
     script:
     """
     module load samtools
     samtools merge -f \
         --threads ${task.cpus} \
-        ${meta.donor_id}.bam \
+        ${meta.donor_id}_merged.bam \
         ${bams}
-    samtools index ${meta.donor_id}.bam
+    samtools index ${meta.donor_id}_merged.bam
     """
 }
 

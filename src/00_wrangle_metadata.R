@@ -53,3 +53,16 @@ sample_sheet <-
 sample_sheet %>%
     dplyr::filter(!is.na(biopsy_bam_file)) %>%
     readr::write_csv("data/sample_sheet.csv")
+
+# read patient metadata
+patient_metadata1 <-
+    readxl::read_xlsx("data/LCM_log_byStructure_kidney.xlsx") %>%
+    dplyr::filter(Sample != "Total") %>%
+    dplyr::transmute(
+        sample_id = Sample, 
+        sample_tumour_status = `Tumor?`, 
+        donor_id = sample_id %>% stringr::str_sub(end = -1),
+        donor_predisposition = `Predisposition?`,
+        donor_diagnosis = Diagnosis)
+patient_metadata2 <-
+    readr::read_csv("data/patientManifest.txt")
