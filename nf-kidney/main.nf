@@ -11,8 +11,9 @@ include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } fr
 // merge and index normal bams (for pseudobulk), create new sample ID (*b denoting normal)
 process merge_normal_bams {
     tag "${meta.donor_id}"
-    label "long10gb"
+    label "week16core10gb"
     publishDir "${params.out_dir}/merged_normal_bams/", mode:"copy"
+    conda '/nfs/users/nfs_a/at31/miniforge3/envs/samtools'
 
     input:
     tuple val(meta), path(bams)
@@ -22,7 +23,6 @@ process merge_normal_bams {
     
     script:
     """
-    module load samtools
     samtools merge -f \
         --threads ${task.cpus} \
         ${meta.donor_id}_merged.bam \
