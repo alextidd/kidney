@@ -21,6 +21,7 @@ library(magrittr)
 # read decode files
 sample_sheet <-
     list.files("data/decode", pattern = "xlsx", full.names = TRUE) %>%
+    purrr::set_names(., basename(.)) %>%
     purrr::map(function(file) {
         file %>%
             readxl::read_xlsx(skip = 1) %>%
@@ -40,18 +41,41 @@ sample_sheet <-
             ) 
     }) %>%
     # collapse duplicate entries across decode files
-    dplyr::bind_rows() %>%
-    dplyr::distinct() %>%
-    # remove problematic samples for now
-    dplyr::filter(!(sample_id %in% c("PD44966b", "PD43948s"))) %>%
-    # check if bam file exists
+    dplyr::bind_rows(.id = 'decode_file') %>%
+    dplyr::group_by(dplyr::across(c(-decode_file))) %>%
+    dplyr::summarise(decode_file = paste(decode_file, collapse = ',')) %>%
+    dplyr::ungroup() %>%
+    # filter out biopsies with missing bam files
+    # cp19@sanger.ac.uk talking about missing BAMs:
+    # "The goal of LCMing is to get the minimum amount of tissue needed to reach the DNA 
+    # input threshold.  My cutting philosophy is to be right at that threshold, which 
+    # means some samples will end up failing library prep.  These proformas are all the 
+    # samples I submitted for sequencing, not all of the samples that passed sequencing."
+    dplyr::filter(file.exists(biopsy_bam_file)) %>%
+    # remove donors that have no normal biopsies
+    dplyr::group_by(donor_id) %>%
+    dplyr::filter('Normal' %in% sample_tumour_status) %>%
+    dplyr::ungroup()
+
+# check that biopsy_id and sample_id and donor_id match up
+check <-
+    sample_sheet %>%
+    dplyr::distinct(sample_id, donor_id, biopsy_id) %>%
+    dplyr::rowwise() %>%
     dplyr::mutate(
-        biopsy_bam_file = ifelse(file.exists(biopsy_bam_file), biopsy_bam_file, NA)
-    )
+        donor_id_in_sample_id = stringr::str_sub(sample_id, end = -2) == donor_id,
+        donor_id_in_biopsy_id = stringr::str_sub(biopsy_id, end = -9) == donor_id,
+        sample_id_in_biopsy_id = stringr::str_sub(biopsy_id, end = -8) == sample_id) %>% 
+    dplyr::filter(
+        donor_id_in_sample_id != T | is.na(donor_id_in_sample_id) |
+        donor_id_in_biopsy_id != T | is.na(donor_id_in_biopsy_id) |
+        sample_id_in_biopsy_id != T | is.na(sample_id_in_biopsy_id))
+if(nrow(check)) {
+    message(paste('Check failed!', nrow(check), 'IDs are inconsistent!'))
+}
 
 # write sample sheet for bams that exist
 sample_sheet %>%
-    dplyr::filter(!is.na(biopsy_bam_file)) %>%
     readr::write_csv("data/sample_sheet.csv")
 
 # read patient metadata
@@ -66,3 +90,4 @@ patient_metadata1 <-
         donor_diagnosis = Diagnosis)
 patient_metadata2 <-
     readr::read_csv("data/patientManifest.txt")
+
