@@ -31,6 +31,42 @@ process merge_normal_bams {
     """
 }
 
+process nextflow {
+    tag "${meta.donor_id}"
+    label "week16core10gb"
+    publishDir "${params.out_dir}/${meta.donor_id}/", mode:"copy"
+
+    input:
+    tuple val(meta), path(query_bam), path(normal_bam)
+
+    script:
+    """
+    module purge
+    module add bcftools
+    module add R/3.6.1 # or choose the one under which you have all your packages installed
+    module add samtools
+    #module add singularity # I disable this to make nextflow use my own NanoSeq version. If not, it takes the info from the nextflow file and downloads all that is needed automatically
+    module add nextflow
+
+    # Activate access to IRODs:
+    iinit 
+
+    cd /lustre/scratch125/casm/team268im/fa8/117/CONTAMINATION_TEST_48390
+    export PATH=/lustre/scratch125/casm/team268im/fa8/117/TWINSUK/PLATE14/DEBUG_INDEL_ERROR/NanoSeq-hotfix-3.5.5/bin:$PATH
+    nextflow run ./NanoSeq-develop/Nextflow/NanoSeq_main.nf  \
+        --jobs 200 -qs 20000 -profile lsf \
+        --remap false \
+        --grch37 true \
+        --dsa_d 2 \
+        --cov_Q 15 --var_b 0 --var_n 3 --var_z 12 -resume --study 6050  --sample_sheet plate.csv \
+        --var_v 0.01 --var_a 50 --var_d 2 \
+        --var_r 144 --var_x 8 \
+        --indel_rb 2 \
+        --var_q 40 \
+        --outDir .
+    """
+}
+
 // define the workflow
 workflow {
 
@@ -70,5 +106,7 @@ workflow {
     | groupTuple 
     | map { meta, biopsy_bam_file -> [meta, biopsy_bam_file.flatten()] }
     | merge_normal_bams
+
+    // 
 
 }

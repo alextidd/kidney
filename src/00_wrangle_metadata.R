@@ -78,7 +78,18 @@ if(nrow(check)) {
 sample_sheet %>%
     readr::write_csv("data/sample_sheet.csv")
 
-# read patient metadata
+# create sample sheet for nanoseq
+sample_sheet_nanoseq <-
+    sample_sheet %>%
+    dplyr::transmute(
+        id = biopsy_id,
+        d_bam = biopsy_bam_file,
+        n_bam = file.path(wd, 'out/merged_normal_bams', paste0(donor_id, '_merged.bam'))) %>% 
+    # check files exist
+    dplyr::filter(file.exists(d_bam) & file.exists(n_bam)) %>%
+    readr::write_csv("data/sample_sheet_nanoseq.csv") 
+
+# read patient metadata from Chloe and Tom
 patient_metadata1 <-
     readxl::read_xlsx("data/LCM_log_byStructure_kidney.xlsx") %>%
     dplyr::filter(Sample != "Total") %>%
@@ -90,4 +101,20 @@ patient_metadata1 <-
         donor_diagnosis = Diagnosis)
 patient_metadata2 <-
     readr::read_csv("data/patientManifest.txt")
+patient_metadata3 <-
+    list.files("data/tjm", pattern = "TBC", full.names = TRUE) %>%
+    purrr::set_names(., basename(.)) %>%
+    purrr::map(function(file) {
+        readxl::read_xlsx(file, sheet = "Sheet1") %>%
+        dplyr::filter(dplyr::row_number() > 15) %>%
+        dplyr::transmute(
+            sample_id = `Donor ID`,
+            donor_id = stringr::str_sub(sample_id, end = -2),
+            donor_gender = gender,
+            donor_age = donor_age_at_diagnosis,
+            sample_phenotype = phenotype,
+            sample_tumour_status = `tumour?`
+        ) 
+    }) %>%
+    dplyr::bind_rows(.id = 'decode_file') 
 

@@ -6,3 +6,4 @@ out/
 test_data/
 data/
 log/
+*.img
