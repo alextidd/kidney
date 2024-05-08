@@ -1,28 +1,17 @@
 #!/bin/bash
 # cd /lustre/scratch126/casm/team154pc/at31/kidney; ~/bin/jsub lsf -q week -n merge_bams -m 2g -l log "bash src/run.sh" | bsub
 
-# merge bams
-nextflow run nf-kidney \
-    --sample_sheet data/sample_sheet.csv \
-    --out_dir out \
-    -c /lustre/scratch125/casm/team268im/at31/RA_som_mut/scomatic/config/LSF.config 
+# # merge bams
+# nextflow run nf-kidney \
+#     --sample_sheet data/sample_sheet.csv \
+#     --out_dir out \
+#     -c /lustre/scratch125/casm/team268im/at31/RA_som_mut/scomatic/config/LSF.config 
+
+# # set up sample sheet for nanoseq
+# head -3 data/sample_sheet_nanoseq.csv > data/sample_sheet_nanoseq_test.csv
 
 # run nanoseq pipeline
-nextflow run ./NanoSeq/Nextflow/NanoSeq_main.nf \
-    -qs 300 -profile lsf_singularity -resume \
-    --jobs 100 \
-    --ref /lustre/scratch126/casm/team273jn/share/pileups/reference_data/hg38/genome.fa \
-    --sample_sheet data/sample_sheet_nanoseq.csv \
-    --cov_Q 15 --var_b 0 --var_n 2 --var_z 15
-
-# modules
-module purge
-module load singularity
-
-head -3 data/sample_sheet_nanoseq.csv > data/sample_sheet_nanoseq_test.csv
-
-# run nanoseq pipeline
-nextflow run ./NanoSeq/Nextflow/NanoSeq_main.nf  \
+nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --jobs 200 -qs 20000 -profile lsf_singularity \
   -w work/ \
   --remap false \
