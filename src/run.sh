@@ -11,17 +11,21 @@
 # head -3 data/sample_sheet_nanoseq.csv > data/sample_sheet_nanoseq_test.csv
 
 # run nanoseq pipeline
+# increase maximum normal VAF (var_v) because query variants will be in the matched normal (due to pseudobulking)
+# increase coverage (var_z) because matched normal is huge (was 12 before)
 nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --jobs 200 -qs 20000 -profile lsf_singularity \
   -w work/ \
   --remap false \
-  --ref /lustre/scratch124/casm/team78pipelines/canpipe/live/ref/Homo_sapiens/GRCh38_full_analysis_set_plus_decoy_hla/genome.fa \
+  --ref /lustre/scratch124/casm/team78pipelines/canpipe/live/ref/Homo_sapiens/GRCh37d5/genome.fa \
   --dsa_d 2 \
-  --cov_Q 15 --var_b 0 --var_n 3 --var_z 12  \
+  --cov_Q 15 --var_b 0 --var_n 3  \
   --sample_sheet data/sample_sheet_nanoseq_test.csv \
-  --var_v 0.01 --var_a 50 --var_d 2 \
+  --var_a 50 --var_d 2 \
   --var_r 144 --var_x 8 \
   --indel_rb 2 \
   --var_q 40 \
+  --var_v 0.05 \
+  --var_z 25 \
   --outDir out/nanoseq/ \
   -resume 

@@ -165,9 +165,10 @@ process NANOSEQ_DEDUP {
         tuple val(meta), path("out/${meta.name}.neat.cram"), path("out/${meta.name}.neat.cram.crai"), emit: cram
         path  "versions.yml", emit: versions
 
+    errorStrategy 'retry'
+    memory = { 5.GB * task.attempt }
     maxRetries 4
     cpus 1
-    memory { task.exitStatus == 130  ? 2.GB * task.attempt : 2.GB }
 
     script:
         """
