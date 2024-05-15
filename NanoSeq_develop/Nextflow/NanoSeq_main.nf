@@ -18,12 +18,22 @@ if ( params.grch37 ) {
 } else {
     params.ref = ""
 }
+
+// create a channel of reference + indices
 assert ( params.ref != "" ) : "\nmust define a reference file genome.fa\n"
-assert ( params.ref.split("/")[-1] == "genome.fa" ) : "\nreference file must be named genome.fa\n"
-file_exists(params.ref,"ref")
-reference_path = params.ref.split("/")[0..-2].join('/')
-file_exists(reference_path + "/genome.fa.bwt.2bit.64", "bwa-mem2 index ")
-file_exists(reference_path + "/genome.fa.dict", "samtools dict ")
+file_exists(params.ref, "ref ")
+file_exists(params.ref + ".bwt.2bit.64", "bwa-mem2 index ")
+file_exists(params.ref + ".dict", "samtools dict ")
+reference_paths = [
+    params.ref,
+    params.ref + ".fa.bwt.2bit.64",
+    params.ref + ".dict"]
+println(reference_paths)
+
+// assert ( params.ref.split("/")[-1] == "genome.fa" ) : "\nreference file must be named genome.fa\n"
+// reference_path = params.ref.split("/")[0..-2].join('/')
+// file_exists(reference_path + "/genome.fa.bwt.2bit.64", "bwa-mem2 index ")
+// file_exists(reference_path + "/genome.fa.dict", "samtools dict ")
 
 params.outDir = baseDir
 // *** Preprocessing and mapping params
@@ -155,7 +165,7 @@ if ( fields.contains("d_fastq1") && fields.contains("d_fastq2") && fields.contai
             list_ids.add(row.id)
             file_exists(row.d_cram,"d_cram")
             file_exists(row.n_cram,"n_cram")
-            [  [id: row.id],row.d_cram,row.n_cram ]}).multiMap{ it ->
+            [  [id: row.id, ext: "cram", ind_ext: "cram.crai"],row.d_cram,row.n_cram ]}).multiMap{ it ->
                 meta_duplex = it[0].clone()
                 meta_duplex["type"]="duplex"
                 meta_normal = it[0].clone()
@@ -174,7 +184,7 @@ if ( fields.contains("d_fastq1") && fields.contains("d_fastq2") && fields.contai
             file_exists(row.d_cram+".crai", "CRAM index")
             file_exists(row.n_cram,"n_cram")
             file_exists(row.n_cram+".crai", "CRAM index")
-            [  [id: row.id],row.d_cram, row.d_cram + ".crai", row.n_cram, row.n_cram + ".crai"]}).multiMap{ it ->
+            [  [id: row.id, ext: "cram", ind_ext: "cram.crai"],row.d_cram, row.d_cram + ".crai", row.n_cram, row.n_cram + ".crai"]}).multiMap{ it ->
                 meta_duplex = it[0].clone()
                 meta_duplex["type"]="duplex"
                 meta_normal = it[0].clone()
@@ -192,7 +202,7 @@ if ( fields.contains("d_fastq1") && fields.contains("d_fastq2") && fields.contai
             list_ids.add(row.id)
             file_exists(row.d_bam,"d_bam")
             file_exists(row.n_bam,"n_bam")
-            [  [id: row.id],row.d_bam,row.n_bam ]}).multiMap{ it ->
+            [  [id: row.id, ext: "bam", ind_ext: "bam.bai"],row.d_bam,row.n_bam ]}).multiMap{ it ->
                 meta_duplex = it[0].clone()
                 meta_duplex["type"]="duplex"
                 meta_normal = it[0].clone()
@@ -211,7 +221,7 @@ if ( fields.contains("d_fastq1") && fields.contains("d_fastq2") && fields.contai
             file_exists(row.d_bam+".bai", "BAM index")
             file_exists(row.n_bam,"n_bam")
             file_exists(row.n_bam+".bai", "BAM index")
-            [  [id: row.id],row.d_bam, row.d_bam + ".bai", row.n_bam, row.n_bam + ".bai"]}).multiMap{ it ->
+            [  [id: row.id, ext: "bam", ind_ext: "bam.bai"], row.d_bam, row.d_bam + ".bai", row.n_bam, row.n_bam + ".bai"]}).multiMap{ it ->
                 meta_duplex = it[0].clone()
                 meta_duplex["type"]="duplex"
                 meta_normal = it[0].clone()
@@ -283,11 +293,11 @@ include { ADD_NANOSEQ_FASTQ_TAGS; MARKDUP; NANOSEQ_ADD_RB;
 workflow MAP_FASTQ {
     take :
         ch_fastq
-        reference_path
+        reference_paths
 
     main :
         ADD_NANOSEQ_FASTQ_TAGS( ch_fastq, params.fastq_tags_m, params.fastq_tags_s)
-        BWAMEM2_MAP( ADD_NANOSEQ_FASTQ_TAGS.out.fastqs, reference_path )
+        BWAMEM2_MAP( ADD_NANOSEQ_FASTQ_TAGS.out.fastqs, reference_paths)
     
     emit :
         cram =  BWAMEM2_MAP.out.cram
@@ -304,7 +314,7 @@ workflow {
             meta["name"] = meta.id + "_" + meta.type
             [ meta, it ]}
 
-        MAP = MAP_FASTQ( ch_fastq_ss , reference_path )
+        MAP = MAP_FASTQ( ch_fastq_ss , reference_paths )
 
     } else { //cram input
 
@@ -318,13 +328,13 @@ workflow {
     
     if ( reMapIn ) { //remapping
 
-        MAP = BWAMEM2_REMAP( ch_cram_ss, reference_path)
+        MAP = BWAMEM2_REMAP( ch_cram_ss, reference_paths )
    
     }
 
     if ( fastqIn || reMapIn ) {
         
-        MARKDUP( MAP.cram, reference_path )
+        MARKDUP( MAP.cram, reference_paths )
 
         versions = versions.concat(MAP.versions.first())
         versions = versions.concat(MARKDUP.out.versions.first())
@@ -332,16 +342,16 @@ workflow {
         ch_cram = MARKDUP.out.cram
     }
 
-    NANOSEQ_ADD_RB( ch_cram , reference_path )
+    NANOSEQ_ADD_RB( ch_cram , reference_paths )
 
     versions = versions.concat(NANOSEQ_ADD_RB.out.versions.first())
 
-    NANOSEQ_DEDUP( NANOSEQ_ADD_RB.out.cram, reference_path, params.nanoseq_dedup_m )
+    NANOSEQ_DEDUP( NANOSEQ_ADD_RB.out.cram, reference_paths, params.nanoseq_dedup_m )
 
     versions = versions.concat(NANOSEQ_DEDUP.out.versions.first())
 
     if ( params.vb_ud != "" &&  params.vb_bed != "" && params.vb_mu != "" ) {
-        VERIFY_BAMID( NANOSEQ_DEDUP.out.cram, params.vb_epsilon, reference_path, params.vb_ud, params.vb_bed, params.vb_mu )
+        VERIFY_BAMID( NANOSEQ_DEDUP.out.cram, params.vb_epsilon, reference_paths, params.vb_ud, params.vb_bed, params.vb_mu )
     
         versions = versions.concat(VERIFY_BAMID.out.versions.first())
     }
@@ -359,7 +369,7 @@ workflow {
 
     ch_input_effi = ch_normal_effi.mix(ch_duplex_effi)
     
-    NANOSEQ_EFFI( ch_input_effi, reference_path)
+    NANOSEQ_EFFI( ch_input_effi, reference_paths)
     
     versions = versions.concat(NANOSEQ_EFFI.out.versions.first())
     
@@ -372,7 +382,7 @@ workflow {
         meta.type = "pair"
         [ meta ] + it[1][1..-1] + it[2][1..-1] }
     
-    NANOSEQ( ch_input_nanoseq, reference_path, params.jobs, params.cov_Q, params.cov_exclude, params.cov_include,
+    NANOSEQ( ch_input_nanoseq, reference_paths, params.jobs, params.cov_Q, params.cov_exclude, params.cov_include,
         params.cov_larger, params.part_excludeBED, params.part_excludeCov, params.snp_bed, params.noise_bed, params.dsa_d, 
         params.dsa_q, params.var_a, params.var_b, params.var_c, params.var_d, params.var_f, params.var_i, params.var_m, 
         params.var_n, params.var_p, params.var_q, params.var_r, params.var_v, params.var_x, params.var_z, params.indel_rb,

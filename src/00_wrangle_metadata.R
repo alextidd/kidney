@@ -2,6 +2,8 @@
 wd <- "/lustre/scratch126/casm/team154pc/at31/kidney/"
 data_dir <- "/nfs/cancer_ref01/nst_links/live/2731"
 setwd(wd)
+dir.create("out/merged_normal_bams/")
+dir.create("out/nanoseq/")
 
 # libraries
 library(magrittr)
@@ -76,7 +78,7 @@ if(nrow(check)) {
 
 # write sample sheet for bams that exist
 sample_sheet %>%
-    readr::write_csv("data/sample_sheet.csv")
+    readr::write_csv("out/merged_normal_bams/sample_sheet.csv")
 
 # create sample sheet for nanoseq
 sample_sheet_nanoseq <-
@@ -86,8 +88,14 @@ sample_sheet_nanoseq <-
         d_bam = biopsy_bam_file,
         n_bam = file.path(wd, 'out/merged_normal_bams', paste0(donor_id, '_merged.bam'))) %>% 
     # check files exist
-    dplyr::filter(file.exists(d_bam) & file.exists(n_bam)) %>%
-    readr::write_csv("data/sample_sheet_nanoseq.csv") 
+    dplyr::filter(file.exists(d_bam) & file.exists(n_bam)) 
+sample_sheet_nanoseq %>%
+    readr::write_csv("out/nanoseq/sample_sheet.csv") 
+
+# create sample sheet for nanoseq testing
+sample_sheet_nanoseq %>%
+    head(2) %>%
+    readr::write_csv("out/test/sample_sheet.csv")
 
 # read patient metadata from Chloe and Tom
 patient_metadata1 <-
