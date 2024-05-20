@@ -392,7 +392,6 @@ process POST {
 
     cpus 2
     memory {  task.exitStatus == 130  ? 5.GB * task.attempt : 5.GB }
-    errorStrategy 'ignore'
 
     script :
         def triNuc_arg = triNuc.name != 'NO_FILE_triNuc' ? "--triNuc $triNuc" : ''
