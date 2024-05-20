@@ -10,7 +10,7 @@ process COV {
     container params.nanoseq_image
 
     input :
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
         tuple val(meta), path(duplex), path(index_duplex), path(normal), path(index_normal)
         val q
         val exclude
@@ -85,7 +85,7 @@ process PART {
     container params.nanoseq_image
 
     input :
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
         tuple  val(meta), path(duplex), path(index_duplex), path(normal), path(index_normal)
         val np
         val excludeCov
@@ -145,7 +145,7 @@ process DSA {
     container params.nanoseq_image
 
     input :
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
         tuple  val(meta), path(duplex), path(index_duplex), path(normal), path(index_normal)
         val np
         file snp_bed
@@ -218,7 +218,7 @@ process VAR {
     container params.nanoseq_image
 
     input :
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
         tuple val(meta), path(duplex), path(index_duplex), path(normal), path(index_normal)
         each ii
         val np
@@ -299,7 +299,7 @@ process INDEL {
     container params.nanoseq_image
 
     input :
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
         tuple  val(meta), path(duplex), path(index_duplex), path(normal), path(index_normal)
         each ii
         val np
@@ -374,7 +374,7 @@ process POST {
     container params.nanoseq_image
 
     input :
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
         tuple  val(meta), path(duplex), path(index_duplex), path(normal), path(index_normal)
         file triNuc
 
@@ -392,6 +392,7 @@ process POST {
 
     cpus 2
     memory {  task.exitStatus == 130  ? 5.GB * task.attempt : 5.GB }
+    errorStrategy 'ignore'
 
     script :
         def triNuc_arg = triNuc.name != 'NO_FILE_triNuc' ? "--triNuc $triNuc" : ''

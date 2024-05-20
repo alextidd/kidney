@@ -1,12 +1,8 @@
 #!/bin/bash
 # cd /lustre/scratch126/casm/team154pc/at31/kidney; ~/bin/jsub lsf -q week -n nanoseq -m 2g -l log "bash src/run.sh" | bsub
 
-# # merge bams
-# nextflow run nf-kidney \
-#     --sample_sheet data/sample_sheet.csv \
-#     --out_dir out \
-#     -c /lustre/scratch125/casm/team268im/at31/RA_som_mut/scomatic/config/LSF.config 
-
+# load singularity
+module load singularity
 
 # run nanoseq pipeline
 # increase maximum normal VAF (var_v) because query variants will be in the matched normal (due to pseudobulking)
@@ -27,4 +23,5 @@ nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --var_z 25 \
   --outDir out/nanoseq/ \
   -c /lustre/scratch125/casm/team268im/at31/RA_som_mut/scomatic/config/LSF.config \
-  -resume 
+  -resume \
+  -N at31@sanger.ac.uk

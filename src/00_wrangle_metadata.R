@@ -95,7 +95,7 @@ sample_sheet_nanoseq %>%
 # create sample sheet for nanoseq testing
 sample_sheet_nanoseq %>%
     head(2) %>%
-    readr::write_csv("out/test/sample_sheet.csv")
+    readr::write_csv("test/out/sample_sheet.csv")
 
 # read patient metadata from Chloe and Tom
 patient_metadata1 <-

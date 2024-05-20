@@ -56,7 +56,7 @@ process MARKDUP {
 
     input:
         tuple val(meta), path(cram), path(index)
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
 
     output:
         tuple val(meta), path("optdup/${meta.name}.${meta.ext}"), path("optdup/${meta.name}.${meta.ind_ext}"), emit: cram
@@ -110,7 +110,7 @@ process NANOSEQ_ADD_RB {
 
     input:
         tuple val(meta), path(cram), path(index)
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
 
     output:
         tuple val(meta), path("out/${meta.name}.${meta.ext}"), path("out/${meta.name}.${meta.ind_ext}"), emit: cram
@@ -151,12 +151,13 @@ process NANOSEQ_DEDUP {
 
     tag "${meta.id}_${meta.type}"
     label "normal4core20gb"
+    errorStrategy 'retry'
 
     container params.nanoseq_image
 
     input:
         tuple val(meta), path(cram), path(index)
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
         val m
 
     output:
@@ -204,7 +205,7 @@ process VERIFY_BAMID {
     input:
         tuple val(meta), path(cram), path(index)
         val epsilon
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
         path vb_ud
         path vb_bed
         path vb_mu
@@ -256,7 +257,7 @@ process NANOSEQ_EFFI {
 
     input:
         tuple val(meta), path(cram), path(index), path(cram_neat), path(index_neat)
-        tuple path(fasta), path(bwt), path(dict)
+        tuple path(fasta), path(fai), path(bwt), path(dict)
 
     publishDir "$params.outDir/outNextflow/$meta.id", mode: 'copy', pattern : "effi/*" , overwrite: true
 

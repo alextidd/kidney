@@ -21,11 +21,13 @@ if ( params.grch37 ) {
 
 // create a channel of reference + indices
 assert ( params.ref != "" ) : "\nmust define a reference file genome.fa\n"
-file_exists(params.ref, "ref ")
+file_exists(params.ref, "fasta ")
+file_exists(params.ref + ".fai", "fasta index ")
 file_exists(params.ref + ".bwt.2bit.64", "bwa-mem2 index ")
 file_exists(params.ref + ".dict", "samtools dict ")
 reference_paths = [
     params.ref,
+    params.ref + ".fai",
     params.ref + ".fa.bwt.2bit.64",
     params.ref + ".dict"]
 println(reference_paths)
