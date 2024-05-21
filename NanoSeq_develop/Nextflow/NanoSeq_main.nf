@@ -12,9 +12,9 @@ params.grch38 = false
 assert ( params.grch38 == true || params.grch38 == false ) : "\ngrch38 parameter must be true or false\n"
 
 if ( params.grch37 ) {
-    params.ref = "/path/to/reference/human/GRCH37d5/genome.fa"
+    params.ref = "/lustre/scratch124/casm/team78pipelines/canpipe/live/ref/Homo_sapiens/GRCh37d5/genome.fa"
 } else if ( params.grch38 ) {
-    params.ref = "/path/to/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/genome.fa"
+    params.ref = "/lustre/scratch124/casm/team78pipelines/canpipe/live/ref/Homo_sapiens/GRCh38_full_analysis_set_plus_decoy_hla/genome.fa"
 } else {
     params.ref = ""
 }
@@ -47,14 +47,15 @@ params.nanoseq_dedup_m = 2
 params.jobs = 100
 //  cov
 params.cov_Q = 0
+params.min_mapQ  = 20
 if ( params.grch37 ) {//for GRCh37 reference
     params.cov_exclude = "MT,GL%,NC_%,hs37d5"
-    params.snp_bed = "/path/to/reference/human/GRCH37d5/botseq/SNP.sorted.bed.gz"
-    params.noise_bed = "/path/to/reference/human/GRCH37d5/botseq/NOISE.sorted.bed.gz"
+    params.snp_bed = "/lustre/scratch124/casm/team78pipelines/reference/human/GRCH37d5/botseq/SNP.sorted.bed.gz"
+    params.noise_bed = "/lustre/scratch124/casm/team78pipelines/reference/human/GRCH37d5/botseq/NOISE.sorted.bed.gz"
 } else if ( params.grch38 ) {//for GRCh38 reference
-    params.cov_exclude = "chrM,chr%_random,chrUn_%,chr%_alt,HLA-%" 
-    params.snp_bed = "/path/to/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/botseq/SNP.sorted.GRCh38.bed.gz"
-    params.noise_bed = "/path/to/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/botseq/NOISE.sorted.GRCh38.bed.gz"
+    params.cov_exclude = "chrM,chr%_random,chrUn_%,chr%_alt,HLA-%"
+    params.snp_bed = "/lustre/scratch124/casm/team78pipelines/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/botseq/SNP.sorted.GRCh38.bed.gz"
+    params.noise_bed = "/lustre/scratch124/casm/team78pipelines/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/botseq/NOISE.sorted.GRCh38.bed.gz"
 } else {
     params.cov_exclude = ""
     params.snp_bed = ""
@@ -103,13 +104,13 @@ file_exists(params.post_triNuc,"post_triNuc")
 // ** VerifyBAMid params
 params.vb_epsilon ="1e-12"
 if (params.grch37 ) { //GRCh37
-    params.vb_ud ="/path/to/reference/human/GRCH37d5/verifybamid/ALL_500K.strictmasked.ok.vcf.UD"
-    params.vb_bed ="/path/to/reference/human/GRCH37d5/verifybamid/ALL_500K.strictmasked.ok.vcf.bed"
-    params.vb_mu ="/path/to/reference/human/GRCH37d5/verifybamid/ALL_500K.strictmasked.ok.vcf.mu"
+    params.vb_ud ="/lustre/scratch124/casm/team78pipelines/reference/human/GRCH37d5/verifybamid/ALL_500K.strictmasked.ok.vcf.UD"
+    params.vb_bed ="/lustre/scratch124/casm/team78pipelines/reference/human/GRCH37d5/verifybamid/ALL_500K.strictmasked.ok.vcf.bed"
+    params.vb_mu ="/lustre/scratch124/casm/team78pipelines/reference/human/GRCH37d5/verifybamid/ALL_500K.strictmasked.ok.vcf.mu"
 } else if ( params.grch38 ) { //GRCh38
-    params.vb_ud ="/path/to/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/verifybamid/1000g.phase3.100k.b38.vcf.gz.dat.UD"
-    params.vb_bed ="/path/to/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/verifybamid/1000g.phase3.100k.b38.vcf.gz.dat.bed"
-    params.vb_mu ="/path/to/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/verifybamid/1000g.phase3.100k.b38.vcf.gz.dat.mu"
+    params.vb_ud ="/lustre/scratch124/casm/team78pipelines/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/verifybamid/1000g.phase3.100k.b38.vcf.gz.dat.UD"
+    params.vb_bed ="/lustre/scratch124/casm/team78pipelines/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/verifybamid/1000g.phase3.100k.b38.vcf.gz.dat.bed"
+    params.vb_mu ="/lustre/scratch124/casm/team78pipelines/reference/human/GRCh38_full_analysis_set_plus_decoy_hla/verifybamid/1000g.phase3.100k.b38.vcf.gz.dat.mu"
 } else {
     params.vb_ud = ""
     params.vb_bed = ""

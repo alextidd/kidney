@@ -309,7 +309,6 @@ process NANOSEQ_VAF {
         tuple val(meta),path("${meta.id}.vcf.gz"), path("${meta.id}.vcf.gz.tbi"), emit: vcf
         path  "versions.yml", emit: versions
 
-    errorStrategy 'ignore'
     maxRetries 4
     cpus 2
     memory { task.exitStatus == 130 ? 2.GB * task.attempt : 2.GB }

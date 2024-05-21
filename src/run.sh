@@ -11,7 +11,7 @@ nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --jobs 200 -qs 20000 -profile lsf_singularity \
   -w work/ \
   --remap false \
-  --ref /lustre/scratch124/casm/team78pipelines/canpipe/live/ref/Homo_sapiens/GRCh37d5/genome.fa \
+  --grch37 true  \
   --dsa_d 2 \
   --cov_Q 15 --var_b 0 --var_n 3  \
   --sample_sheet out/nanoseq/sample_sheet.csv \

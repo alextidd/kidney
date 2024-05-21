@@ -167,6 +167,7 @@ process DSA {
 
     cpus 1
     memory '1.GB'
+    errorStrategy 'retry'
    
     script :
         //add the job index to the output metadata (to sort processes)
