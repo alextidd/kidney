@@ -1,0 +1,574 @@
+---
+title: "00_wrangle_metadata"
+author: "Alexandra Tidd"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    fig_width: 8
+    keep_md: false
+    code_folding: show
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 4
+    theme: lumen
+---
+
+```{r setup, include = F, message = F, warning = F, class.source = 'fold-hide'}
+# Rscript -e "rmarkdown::render('src/00_wrangle_metadata.Rmd', output_dir = 'out/metadata/')" # nolint: line_length_linter.
+knitr::opts_knit$set(root.dir = "../")
+knitr::opts_chunk$set(warning = FALSE, dpi = 300, message = FALSE)
+
+# dirs
+data_dir <- "/nfs/cancer_ref01/nst_links/live/2731"
+dir.create("out/merged_normal_bams/", showWarnings = F)
+dir.create("out/nanoseq/", showWarnings = F)
+
+# libraries
+library(magrittr)
+
+# function: clean up metadata
+cleanup_metadata <- function(df) {
+  if ("donor_sex" %in% colnames(df)) {
+    df <-
+      df %>%
+      dplyr::mutate(
+        donor_sex = dplyr::case_when(
+          donor_sex %in% c("male", "Male") ~ "M",
+          donor_sex %in% c("female", "Female") ~ "F",
+          donor_sex == "Unknown" ~ NA_character_,
+          TRUE ~ donor_sex))
+  }
+  df %>%
+    # re-check col types
+    readr::type_convert() %>%
+    dplyr::distinct()
+}
+
+# dirs
+dir.create("out/metadata/", showWarnings = FALSE)
+```
+
+# Introduction
+
+This script wrangles the metadata from the project 
+**NanoSeq - (CP) Normal and cancer-predisposed kidney (2731)**.
+
+## Handling LCM metadata
+
+There are three levels to the metadata in an LCM experiment that I have formalised for this project:
+
+1. **Donor-level metadata** - This is all of the information that is unique to 
+each donor. Each donor is defined by their PDID (e.g. PD12345).
+
+2. **Sample-level metadata** - This is all of the information that is unique to 
+each sample. In the case of LCM, a sample is defined as one slide of sections 
+from the donor (e.g. PD12345a).
+
+3. **Biopsy-level metadata** - This is all of the information that is unique to 
+each biopsy. In the case of LCM, a biopsy is defined as one well of cuts from 
+the sample that is sequenced (e.g. PD12345a_ds0001).
+
+In the output files, information pertaining to each of these levels will be 
+prefixed with `donor_`, `sample_`, or `biopsy_`.
+
+# Inputs (in `data/`)
+
+When I began this project, I was given various files describing the dataset that I needed to harmonise into a consistent, clean, centralised metadata file in order to run the analyses.
+I describe these files here.
+
+## `LCM_log_byStructure_kidney.xslx`
+
+Sent by cp19@sanger.ac.uk, 19.03.2024
+
+```{r class.source = 'fold-hide'}
+readxl::read_xlsx("data/LCM_log_byStructure_kidney.xlsx") %>%
+  knitr::kable()
+```
+
+This is an overview of the number of samples cut per patient per histological structure. 
+
+```{r}
+lcm_log <-
+    readxl::read_xlsx("data/LCM_log_byStructure_kidney.xlsx") %>%
+    dplyr::filter(Sample != "Total") %>%
+    dplyr::transmute(
+        sample_id = Sample,
+        sample_tumour_status = `Tumor?` > 0,
+        donor_id = sample_id %>% stringr::str_sub(end = -2),
+        donor_predisposition = dplyr::case_when(
+            `Predisposition?` == "NA" ~ NA_character_,
+            TRUE ~ `Predisposition?`),
+        donor_diagnosis = Diagnosis) %>%
+    # clean up metadata
+    cleanup_metadata()
+
+# view
+lcm_log %>%
+  knitr::kable()
+```
+
+## `patientManifest.txt`
+
+Sent by cp19@sanger.ac.uk, 19.03.2024
+
+```{r class.source = 'fold-hide'}
+readr::read_tsv("data/patientManifest.txt") %>%
+  knitr::kable()
+```
+
+This contains details on the donors. This is the main trusted source of donor 
+metadata, as the decode files have several inconsistencies due to copying and 
+input errors.
+
+```{r}
+patient_manifest <-
+  readr::read_tsv("data/patientManifest.txt") %>%
+  dplyr::transmute(
+    donor_id = Sanger,
+    donor_predisposition = Syndrome,
+    donor_diagnosis = Dx,
+    donor_age = Age,
+    donor_sex = Sex
+  ) %>%
+  # clean up metadata
+  cleanup_metadata()
+
+# view
+patient_manifest %>%
+  knitr::kable()
+```
+
+## Decode files from Chloe Pacyna
+
+Sent by cp19@sanger.ac.uk, 02.04.2024 & 19.04.2024
+
+The decode files contain experimental information about the LCM cuts, 
+connecting them with the donor and sample information. 
+
+4 decode files were created for this project:
+
+```{r}
+list.files("data/decode/cp19/", pattern = "xlsx", full.names = TRUE)
+```
+
+The following columns were retained to generate the metadata:
+
+```{r class.source = 'fold-hide'}
+tibble::tribble(
+  ~decode_col,                ~rename,
+  "existing_pd_id_for_donor", "sample_id",
+  "gender",                   "donor_sex",
+  "donor_age_at_diagnosis",   "donor_age",
+  "tissue_phenotype",         "biopsy_phenotype",
+  "tumour or normal?",        "sample_tumour_status",
+  "tissue_histology",         "sample_histology",
+  "PD_ID",                    "biopsy_id") %>%
+  knitr::kable()
+```
+
+```{r}
+decodes <-
+  list.files("data/decode/cp19/", pattern = "xlsx", full.names = TRUE) %>%
+  purrr::set_names(., basename(.)) %>%
+  purrr::map(function(file) {
+    file %>%
+      readxl::read_xlsx(skip = 1) %>%
+      dplyr::filter(dplyr::row_number() > 12,
+                    !is.na(existing_pd_id_for_donor)) %>%
+      dplyr::transmute(
+        sample_id = existing_pd_id_for_donor,
+        donor_id = stringr::str_sub(sample_id, end = -2),
+        donor_sex = gender,
+        donor_age = donor_age_at_diagnosis,
+        biopsy_phenotype = tissue_phenotype,
+        sample_tumour_status = `tumour or normal?`,
+        sample_histology = tissue_histology,
+        biopsy_id = PD_ID,
+        biopsy_bam_file =
+          paste0(data_dir, "/", biopsy_id, "/", biopsy_id, ".sample.merged.bam")
+      )
+  }) %>%
+  dplyr::bind_rows(.id = "decode_file") 
+```
+
+### Inconsistencies in the decode files
+
+There are several inconsistencies in these files that must be considered.
+
+#### `decode/cp19_kidney2_Sanger_Human_Sample_ProformaV4.0_current_2021_covid.xlsx`
+
+There was an error in the original file which I manually fixed. The `biopsy_id`s 
+(e.g. PD51357a_ds0001) were in the `donor_age_at_diagnosis` column, rather than 
+the `PD_ID` column.
+
+#### `cp19_kidney4_Sanger_Human_Sample_ProformaV4.0_current_2021_covid.xlsx`
+
+There are two `sample_id`s th`at are mixed up in the `Supplier_Sample_ID` column
+in this decode file (PD44966b and PD43948s). For all decode files I source the 
+`sample_id` from the `existing_pd_id_for_donor` column, as this column is 
+reliably consistent, and then derive the `donor_id` as a substring.
+
+#### Donor metadata errors
+
+##### `PD43948`
+
+PD43948 has metadata from two different donors across 2 of the decode files.
+
+```{r}
+decodes %>%
+  dplyr::filter(donor_id == "PD43948") %>%
+  dplyr::distinct(donor_id, donor_sex, donor_age) %>%
+  knitr::kable()
+```
+
+According to the `patient_manifest`, PD43948 is a 76-year-old female. 
+
+```{r class.source = 'fold-hide'}
+patient_manifest %>%
+  dplyr::filter(donor_id == "PD43948") %>%
+  knitr::kable()
+```
+
+##### `PD47172`
+
+PD47172 also has metadata from two different donors across 2 of the decode files.
+
+```{r}
+decodes %>%
+  dplyr::filter(donor_id == "PD47172") %>%
+  dplyr::distinct(donor_id, donor_sex, donor_age) %>%
+  knitr::kable()
+```
+
+According to the `patient_manifest`, PD47172 is a 52-year-old male.
+
+```{r class.source = 'fold-hide'}
+patient_manifest %>%
+  dplyr::filter(donor_id == "PD47172") %>%
+  knitr::kable()
+```
+
+Because of these issues, the donor information in the patient manifest will
+take precedence over the donor information in the decode files.
+
+## Files from Li et al. (2022)
+
+Some of the samples from this project were in the paper "Mapping single-cell 
+transcriptomes in the intra-tumoral and associated territories of kidney 
+cancer" (Li et al., 2022).
+
+```{r}
+li2022_metadata <-
+  readr::read_tsv("data/Li_2022/sample_table_from_tjm_20240414.tsv")
+
+# view 
+li2022_metadata %>%
+  knitr::kable()
+```
+
+```{r}
+li2022_mmc2 <-
+  readxl::read_xlsx("data/Li_2022/mmc2.xlsx", skip = 1)
+
+# view
+li2022_mmc2 %>%
+  knitr::kable()
+```
+
+## Decode files from Thomas Mitchell
+
+Sent by tjm61@medschl.cam.ac.uk, 23.04.2024
+
+Thomas Mitchell also sent metadata and decode files related to this project.
+
+```{r}
+list.files("data/decode/tjm", full.names = TRUE)
+```
+
+### `decode/tjm/Samples_Tom_24-02-2021_sent.xlsx`
+
+Sent by tjm61@medschl.cam.ac.uk, 17.04.2024
+
+```{r}
+# read decodes
+decodes_tjm <-
+  list.files("data/decode/tjm", pattern = "TBC", full.names = TRUE) %>%
+  purrr::set_names(., basename(.)) %>%
+  purrr::map(function(file) {
+    readxl::read_xlsx(file, sheet = "Sheet1") %>%
+      dplyr::filter(dplyr::row_number() > 15) %>%
+      dplyr::transmute(
+        sample_id = `Donor ID`,
+        donor_id = stringr::str_sub(sample_id, end = -2),
+        donor_sex = gender,
+        donor_age = donor_age_at_diagnosis,
+        sample_phenotype = phenotype,
+        sample_tumour_status = `tumour?`,
+        tube_barcode_identifier,
+        Supplier_Donor_ID,
+        existing_pd_id_for_donor,
+        sample_ID_in_COSMIC,
+        Individual
+      )
+  }) %>%
+  dplyr::bind_rows(.id = "decode_file") %>%
+  # get all other IDs in one column for a search
+  tidyr::pivot_longer(cols = c(tube_barcode_identifier, Supplier_Donor_ID,
+                               existing_pd_id_for_donor, sample_ID_in_COSMIC,
+                               Individual),
+                      names_to = "other_id_col", values_to = "other_id")
+```
+
+```{r}
+# read sample sheet
+tjm_supp_1 <-
+  "data/decode/tjm/Samples_Tom_24-02-2021_sent.xlsx" %>%
+  readxl::read_xlsx() %>%
+  dplyr::transmute(
+    tube_barcode_identifier = `G number`,
+    sample_id_tjm = ID,
+    sample_tumour_status = Region,
+    donor_predisposition = Syndrome,
+    donor_age = Age,
+    donor_sex = `...8`
+  ) 
+```
+
+```{r}
+# read decode supplement 
+tjm_supp_2 <-
+  "data/decode/tjm/TBC_TomM_Royal_Free_Renal_Sanger_Human_Proforma_Rec20210309_WithCGP_IDS_20210315.xlsx" %>%
+  readxl::read_xlsx(sheet = "Sheet2") %>%
+  dplyr::transmute(
+    tube_barcode_identifier = `ISBT aliquot 15Digits`,
+    sample_id_tjm = ID,
+    sample_type = `Derivative Type/SampleType`,
+    donor_diagnosis = `Tumour type`,
+    donor_predisposition = Syndrome,
+  )
+```
+
+# Wrangling
+
+1. Merge the decode files. Duplicate biopsies across multiple decode files are 
+collapsed.
+
+2. Filter out biopsies with missing BAM files. BAM files only exist for 144 / 
+232 entries. According to cp19@sanger.ac.uk: "The goal of LCMing is to get the 
+minimum amount of tissue needed to reach the DNA input threshold.  My cutting 
+philosophy is to be right at that threshold, which means some samples will end 
+up failing library prep. These proformas are all the samples I submitted for 
+sequencing, not all of the samples that passed sequencing."
+
+3. Remove donors with no normal biopsies. As the NanoSeq pipeline requires a 
+at least one 'normal' sample to call somatic mutations, donors with no normal
+cannot proceed.
+
+4. Standardise `biopsy_phenotype` annotations. Different naming conventions 
+were used for the same structures across the 4 decode files. I standardised
+these.  
+
+5. Standardise donor metadata. This fixes `donor_sex` categories, ensures all
+rows are unique, and runs `tidyr::type_convert()`.
+
+6. Check that `donor_id`, `sample_id`, and `biopsy_id` match up. This is to 
+ensure that the IDs are consistent across the metadata levels.
+
+```{r}
+sample_sheet <-
+  decodes %>%
+  # 1. collapse duplicate entries across decode files
+  dplyr::group_by(dplyr::across(c(-decode_file))) %>%
+  dplyr::summarise(decode_file = paste(decode_file, collapse = ",")) %>%
+  dplyr::ungroup() %>%
+  # 2. filter out biopsies with missing bam files
+  dplyr::filter(file.exists(biopsy_bam_file), biopsy_phenotype != "blank") %>%
+  # 3. remove donors that have no normal biopsies
+  dplyr::group_by(donor_id) %>%
+  dplyr::filter("Normal" %in% sample_tumour_status) %>%
+  dplyr::ungroup() %>%
+  # 4. standardise sample phenotype annotations
+  dplyr::mutate(
+    biopsy_phenotype = dplyr::case_when(
+      biopsy_phenotype %in% c("glomerulus", "glomeruls", "Glomeruli") 
+        ~ "glomerulus",
+      biopsy_phenotype %in% c("lymphoid", "lymphoidAggregate", "lymphTumor") 
+        ~ "lymphoid_aggregate",
+      biopsy_phenotype %in% c("arterial", "venous", "vessel") 
+        ~ "endothelial",
+      biopsy_phenotype == "tumor" 
+        ~ "tumour",
+      biopsy_phenotype == "hybridStromaDCT" 
+        ~ "hybrid_stroma_DCT",
+      TRUE ~ biopsy_phenotype)) %>%
+  # 5. standardise donor metadata
+  cleanup_metadata()
+
+# 6. check that biopsy_id and sample_id and donor_id match up
+check <-
+  sample_sheet %>%
+  dplyr::distinct(sample_id, donor_id, biopsy_id) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(
+    donor_id_in_sample_id = stringr::str_sub(sample_id, end = -2) == donor_id,
+    donor_id_in_biopsy_id = stringr::str_sub(biopsy_id, end = -9) == donor_id,
+    sample_id_in_biopsy_id = stringr::str_sub(biopsy_id, end = -8) == sample_id
+  ) %>%
+  dplyr::filter(donor_id_in_sample_id != TRUE | is.na(donor_id_in_sample_id) |
+      donor_id_in_biopsy_id != TRUE | is.na(donor_id_in_biopsy_id) |
+      sample_id_in_biopsy_id != TRUE | is.na(sample_id_in_biopsy_id)
+  )
+if (nrow(check)) {
+  message(paste("Check failed!", nrow(check), "IDs are inconsistent!"))
+}
+```
+
+Now, I combine the finalised biopsy, sample, and donor metadata into a single file.
+
+```{r}
+biopsy_metadata <-
+  sample_sheet %>%
+  # ignore donor metadata from decodes
+  dplyr::select(-c(donor_sex, donor_age)) %>%
+  # add patient manifest data
+  dplyr::left_join(patient_manifest)
+```
+
+## Missing ages
+
+There are 5 donors with missing ages:
+
+```{r}
+donors_wo_ages <-
+  biopsy_metadata %>%
+  dplyr::filter(is.na(donor_age)) %>%
+  dplyr::select(dplyr::starts_with("donor_")) %>%
+  dplyr::distinct()
+```
+
+Only one donor, `PD51354`, is in the patient manifest, but does not have a listed age:
+
+```{r}
+patient_manifest %>%
+  dplyr::filter(donor_id %in% donors_wo_ages$donor_id) %>%
+  knitr::kable()
+```
+
+Checking the decode files, we see that none of these donors have ages listed there either.
+
+```{r}
+decodes %>%
+  dplyr::bind_rows(.id = "decode_file") %>% 
+  dplyr::filter(donor_id %in% donors_wo_ages$donor_id) %>%
+  dplyr::distinct(donor_id, donor_age) %>%
+  knitr::kable()
+```
+
+Checking the metadata from Li et al. (2022), we see that `PD44707` is listed as a 56-year-old female. 
+
+```{r}
+li2022_metadata %>%
+  dplyr::filter(PD_id %in% donors_wo_ages$donor_id)
+```
+
+We can therefore amend the biopsy metadata.
+
+```{r}
+biopsy_metadata <-
+  biopsy_metadata %>%
+  dplyr::mutate(
+    donor_age = dplyr::case_when(donor_id == "PD44707" ~ 56, TRUE ~ donor_age),
+    donor_sex = dplyr::case_when(donor_id == "PD44707" ~ "F", TRUE ~ donor_sex))
+donors_wo_ages <-
+  donors_wo_ages %>%
+  dplyr::filter(donor_id != "PD44707")
+```
+
+Checking the decode files sent by Thomas Mitchell, none of these donors have listed ages.
+
+```{r}
+decodes_tjm %>%
+  dplyr::filter(donor_id %in% donors_wo_ages$donor_id |
+                  other_id %in% donors_wo_ages$donor_id) %>%
+  dplyr::distinct(donor_id, donor_age) %>%
+  knitr::kable()
+```
+
+Checking the supplementary files sent by Thomas Mitchell, none of these donors can be found.
+
+```{r}
+codes_wo_age <-
+  decodes_tjm %>%
+  dplyr::filter(donor_id %in% donors_wo_ages$donor_id |
+                  other_id %in% donors_wo_ages$donor_id) %>%
+  {unique(c(.$donor_id, .$other_id))}
+tjm_supp_1 %>%
+  dplyr::filter(sample_id_tjm %in% codes_wo_age |
+                  tube_barcode_identifier %in% codes_wo_age) 
+```
+
+```{r}
+# view 
+biopsy_metadata %>%
+  head() %>%
+  knitr::kable()
+
+# write
+biopsy_metadata %>%
+  readr::write_tsv("out/metadata/biopsy_metadata.tsv")
+```
+
+# Generating sample sheets
+
+## `sample_sheet.csv` for nf-kidney
+
+The `nf-kidney` pipeline merges normal BAMs from each donor to use as a
+matched normal for the `NanoSeq` pipeline. It requires a sample sheet with the
+columns `donor_id`, `sample_id`, `biopsy_id`, and `sample_tumour_status`.
+
+```{r}
+sample_sheet %>%
+  readr::write_csv("out/merged_normal_bams/sample_sheet.csv")
+```
+
+## `sample_sheet.csv` for NanoSeq
+
+The `NanoSeq` pipeline requires a sample sheet with the columns `id` 
+(equivalent to `biopsy_id`), `d_bam` (path to the query BAM), and `n_bam` (path
+to the merged normal BAM). This sample sheet can be generated after 
+`src/01_merge_normal_bams.sh` has successfully run the `nf-kidney` pipeline. 
+
+```{r}
+# transmute
+sample_sheet_nanoseq <-
+  sample_sheet %>%
+  dplyr::transmute(
+    id = biopsy_id,
+    d_bam = biopsy_bam_file,
+    n_bam = file.path(getwd(),
+                      "out/merged_normal_bams",
+                      paste0(donor_id, "_merged.bam"))) %>%
+  # check files exist
+  dplyr::filter(file.exists(d_bam) & file.exists(n_bam))
+
+# write
+sample_sheet_nanoseq %>%
+  readr::write_csv("out/nanoseq/sample_sheet.csv")
+
+# view
+sample_sheet_nanoseq %>%
+  head() %>%
+  knitr::kable()
+```
+
+# Outputs
+
+There are three key outputs from this script:
+
+1. A sample sheet used as input to the `nf-kidney` pipeline (see `./nf-kidney/`)
+
+2. A sample sheet used as input to the `NanoSeq` pipeline (see [cancerit/NanoSeq](https://github.com/cancerit/NanoSeq))
+
+3. A harmonised metadata file that contains clean donor and sample information for the project
+

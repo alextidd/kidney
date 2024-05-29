@@ -3,6 +3,6 @@
 
 # merge bams
 nextflow run nf-kidney \
-    --sample_sheet data/sample_sheet.csv \
+    --sample_sheet out/merge_normal_bams/sample_sheet.csv \
     --out_dir out \
     -c /lustre/scratch125/casm/team268im/at31/RA_som_mut/scomatic/config/LSF.config 
