@@ -9,7 +9,7 @@ module load singularity
 # increase coverage (var_z) because matched normal is huge (was 12 before)
 nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --jobs 200 -qs 300 -profile lsf_singularity \
-  -w work/ \``
+  -w work/ \
   --sample_sheet out/nanoseq/sample_sheet.csv \
   --remap false \
   --grch37 true  \
