@@ -23,6 +23,7 @@ knitr::opts_chunk$set(warning = FALSE, dpi = 300, message = FALSE)
 data_dir <- "/nfs/cancer_ref01/nst_links/live/2731"
 dir.create("out/merged_normal_bams/", showWarnings = F)
 dir.create("out/nanoseq/", showWarnings = F)
+dir.create("out/metadata/", showWarnings = FALSE)
 
 # libraries
 library(magrittr)
@@ -44,9 +45,6 @@ cleanup_metadata <- function(df) {
     readr::type_convert() %>%
     dplyr::distinct()
 }
-
-# dirs
-dir.create("out/metadata/", showWarnings = FALSE)
 ```
 
 # Introduction

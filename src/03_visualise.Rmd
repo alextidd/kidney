@@ -1,0 +1,337 @@
+---
+title: "03_visualise"
+author: "Alexandra Tidd"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    fig_width: 8
+    keep_md: true
+    code_folding: show
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 4
+    theme: lumen
+---
+
+```{r setup, include = F, message = F, warning = F, class.source = 'fold-hide'}
+# Rscript -e "rmarkdown::render('src/03_visualise.Rmd', output_dir = 'out/nanoseq/analysis/')" # nolint: line_length_linter.
+
+# knitr opts 
+knitr::opts_knit$set(root.dir = "../")
+knitr::opts_chunk$set(warning = FALSE, dpi = 300, message = FALSE)
+
+# dirs
+nanoseq_dir <- "out/nanoseq/outNextflow/"
+dir.create("out/nanoseq/analysis/", showWarnings = FALSE)
+
+# libraries
+library(magrittr)
+library(ggplot2)
+
+# functions ####
+
+# function: get files in nanoseq dir from prefix
+get_files <- function(biopsy_ids, ext) {
+  files <-
+    biopsy_ids %>%
+    purrr::set_names(., .) %>%
+    purrr::map(function(biopsy_id) {
+      list.files(file.path(nanoseq_dir, biopsy_id, "post"),
+                 full.names = TRUE, pattern = ext)
+    }) %>%
+    # remove empty elements
+    Filter(length, .)
+
+  if (grepl("tsv", ext) == TRUE) {
+    # load tsv
+    out <-
+      files %>%
+      purrr::map_df(function(file) {
+        file %>% read.table() %>% tibble::as_tibble(rownames = "row")
+      }, .id = "biopsy_id")
+  } else if (grepl("vcf.gz", ext) == TRUE) {
+    # load vcf
+    out <-
+      files %>%
+      purrr::map_df(function(file) {
+        vcfR::read.vcfR(file, verbose = FALSE)@fix %>%
+          tibble::as_tibble() %>%
+          # only get variants that pass
+          dplyr::filter(FILTER == "PASS") %>%
+          # count variants per biopsy
+          dplyr::mutate(n = dplyr::n())
+      }, .id = "biopsy_id")
+  } else {
+    stop("Extension not recognised")
+  }
+
+  # return
+  return(out)
+}
+
+# function: plot trinuc distributions
+plot_trinucs <- function(trinucs) {
+  trinucs %>%
+    ggplot(aes(x = trinuc, y = trint_subst_obs, fill = facet)) +
+    geom_col(width = 0.5) +
+    scale_fill_manual(values = colours_vec) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, family = "courier"),
+          legend.position = "none",
+          panel.grid = element_blank()) +
+    labs(x = "substitution", y = "observed mutation counts")
+}
+
+# colours and orders ####
+
+# set order/colours of biopsy
+# "The correct pathway within the nephron starts with the glomerulus followed
+# by the Bowman's capsule, proximal convoluted tubule, the descending loop of
+# Henle, the ascending loop of Henle, distal convoluted tubule, and collecting
+# duct. The glomerulus is found within the Bowman's capsule.
+phenotype_order <-
+  c("glomerulus" = "#66A61E",
+    "PCT" = "#E6AB02",
+    "DCT" = "#D95F02",
+    "lymphoid_aggregate" = "#7570B3",
+    "endothelial" = "#E7298A",
+    "tumour" = "black")
+
+# set order/colours of trinucleotide subs
+colours_vec <-
+  c("C>A" = "deepskyblue",
+    "C>G" = "black",
+    "C>T" = "firebrick2",
+    "T>A" = "gray",
+    "T>C" = "darkolivegreen3",
+    "T>G" = "rosybrown2")
+```
+
+# Introduction
+
+This script analyses the output from the `NanoSeq` pipeline for the project 
+**NanoSeq - (CP) Normal and cancer-predisposed kidney (2731)**.
+
+# Load metadata
+
+```{r load_metadata}
+# load sample sheet
+sample_sheet <-
+  readr::read_csv("out/nanoseq/sample_sheet.csv")
+
+# load biopsy metadata and reorder phenotypes
+biopsy_metadata <-
+  readr::read_tsv("out/metadata/biopsy_metadata.tsv") %>%
+  dplyr::mutate(biopsy_phenotype = factor(biopsy_phenotype,
+                                          levels = names(phenotype_order)))
+```
+
+# NanoSeq outputs
+
+The output files from the NanoSeq pipeline are located in the `post/` directory.
+
+```{bash}
+ls -d out/nanoseq/outNextflow/*/post/ | head -1 | xargs ls
+```
+
+According to the [NanoSeq GitHub](https://github.com/cancerit/NanoSeq), these
+are the most relevant output files from the pipeline:
+
+* `muts.vcf.gz / muts.tsv`: substitutions called in vcf and tsv format. "PASS" 
+substitutions are those not filtered by the common SNP and noisy sites masks 
+(see Genomic masks).
+
+* `indels.vcf.gz`: indel calls
+
+* `burden.masked-vs-unmasked.pdf`: estimated burden before and after filtering 
+common SNPs. Provides a qualitative view on contamination.
+
+* `mut_burden.tsv`: estimated substitution burden with Poisson confidence
+intervals. The corrected burden shows the burden after normalizing observed 
+trinucleotide frequencies to the genomic trinucleotide frequencies.
+
+* `trinuc-profiles.pdf` / `trint_subs_obs_corrected.tsv` / 
+`trint_counts_and_ratio2genome.tsv`: Trinucleotide substitution profiles 
+(observed and corrected), using the trinucleotide substitution counts in 
+`trint_subs_obs_corrected.tsv` and the normalization of trinucleotide 
+frequencies in `trint_counts_and_ratio2genome.tsv`. Normalization is required 
+because NanoSeq results are depleted of trinucleotides overlapping the 
+restriction site and of CpGs due to extensive filtering of common SNPs.
+
+* `cov.bed.gz`: large file containing the effective duplex coverage for each 
+genomic site, also showing the trinucleotide context of each site. This file is 
+required to to calculate burdens and substitution profiles in sets of specific 
+genomic regions (e.g. highly expressed genes, heterochromatin, ...).
+
+* `subst_asym.pdf` / `subst_asym_and_rates_binned.pdf` / `subst_asym_binned.tsv` 
+/ `subst_asym.pvals` / `subst_asym.tsv`: These files are not generally needed 
+for NanoSeq analysis. They were originally used to detect asymmetries in the 
+original DuplexSeq & BotSeqS protocols.
+
+* `mismatches.trinuc-profile.pdf` / `mismatches.subst_asym.pdf` / 
+`mismatches.subst_asym.pvals` / `mismatches.subst_asym.tsv`: These files show 
+the asymmetries and pyrimidine/purine-based trinucleotide substitution profiles 
+for single-strand consensus calls. These profiles are useful to understand DNA 
+damage during library preparation.
+
+* `DSC_errors_per_channel.pdf` / `DSC_estimated_error_rates.pdf` / 
+`estimated_error_rates.tsv` / `SSC-mismatches-Both.triprofiles.tsv` / 
+`SSC-mismatches-Purine.triprofiles.tsv` / 
+`SSC-mismatches-Pyrimidine.triprofiles.tsv`: Based on the independent error 
+rates in the purine and pyrimidine channels (e.g. G>T and C>A), we calculate the 
+probability of having independent errors affecting both strands and resulting in 
+double-strand consensus.
+
+# Load the NanoSeq outputs
+
+I want to visualise the counts and burdens of indels and SNVs, and to plot the
+distribution of trinucleotide substitutions. First, we load the relevant files.
+
+```{r load_post}
+post <- 
+  list("mut_burden" = ".mut_burden.tsv$",
+       "trint_subs_obs_corrected" = ".trint_subs_obs_corrected.tsv$",
+       "indel" = ".indel.vcf.gz$",
+       "muts" = ".muts.vcf.gz$") %>%
+  purrr::map(~ get_files(sample_sheet$id, .x))
+```
+
+Next, we combine the burdens from SNVs and from indels into a single long-form
+dataframe.
+
+* The `variant_type` column is either `snv` or `indel`. 
+
+* The `value_type` column denotes what the `value` column is measuring. `count` 
+is the number of each mutation type, `total` is the number of sites sequenced, 
+and `burden` is the proportion of all sites sequenced that are of that mutation 
+type (i.e. `count` / `total`). 
+
+N.B. `total` values for indels and SNVs will be the same in each biopsy. 
+
+```{r get_burdens}
+# get all burdens
+burdens <-
+  post[["mut_burden"]] %>%
+  # standardise names
+  dplyr::transmute(biopsy_id, snv_count = muts, snv_burden = burden, 
+                   total, snv_total = total, indel_total = total) %>%
+  dplyr::left_join(post[["indel"]] %>%
+                     dplyr::select(biopsy_id, indel_count = n) %>%
+                     dplyr::distinct()) %>%
+  # calculate indel burden
+  dplyr::mutate(indel_burden = indel_count / total) %>%
+  # convert to long format
+  tidyr::pivot_longer(
+    cols = c(dplyr::ends_with("_count"), 
+             dplyr::ends_with("_burden"),
+             dplyr::ends_with("_total")),
+    names_pattern = "([^.]+)\\_([^.]+)$",
+    names_to = c("variant_type", "value_type")) %>%
+  # add metadata
+  dplyr::left_join(biopsy_metadata)
+
+# view sample
+burdens %>%
+  head() %>%
+  knitr::kable()
+```
+
+# Visualise
+
+## Burdens, counts, and totals
+
+### Burdens, counts, and totals vs biopsy ID
+
+```{r plot_burdens_vs_biopsy, class.source = 'fold-hide', fig.width = 12, fig.height = 12}
+burdens %>%
+  ggplot(aes(x = biopsy_id, y = value, fill = biopsy_phenotype)) +
+  geom_col() +
+  scale_x_discrete(guide = guide_axis(angle = -90)) +
+  scale_fill_manual(values = phenotype_order) +
+  ggh4x::facet_nested(
+    variant_type + value_type ~ biopsy_phenotype,
+    scales = "free", space = "free_x") +
+  theme_bw() +
+  theme(panel.spacing = unit(0.1, "cm", data = NULL))
+```
+
+### Burdens, counts, and totals vs donor age
+
+```{r plot_burden_vs_age, class.source = 'fold-hide'}
+burdens %>%
+  dplyr::filter(!is.na(donor_age)) %>%
+  ggplot(aes(x = donor_age, y = value, colour = biopsy_phenotype)) +
+  geom_point() +
+  scale_x_discrete(guide = guide_axis(angle = -90)) +
+  scale_colour_manual(values = phenotype_order) +
+  ggh4x::facet_nested(
+    value_type ~ variant_type,
+    scales = "free", space = "free_x") +
+  theme_bw()
+```
+
+### Median burden per donor vs donor age
+
+```{r plot_med_burden_vs_age, class.source = 'fold-hide'}
+burdens %>%
+  dplyr::filter(!is.na(donor_age)) %>%
+  dplyr::group_by(donor_id) %>%
+  dplyr::mutate(median_value = median(value)) %>%
+  ggplot(aes(x = donor_age, y = median_value, colour = donor_predisposition)) +
+  geom_point() +
+  theme_bw()
+```
+
+## Trinucleotide substitutions
+
+```{r trinucs_p_dat}
+# wrangle trinucleotide substitutions
+p_dat <-
+  post[["trint_subs_obs_corrected"]] %>%
+  dplyr::rename(substitution = row) %>%
+  # add metadata
+  dplyr::left_join(biopsy_metadata) %>%
+  dplyr::mutate(facet = paste0(stringr::str_sub(substitution, 2, 2),
+                               ">",
+                               stringr::str_sub(substitution, 5, 5)),
+                trinuc = stringr::str_sub(substitution, 1, 3))
+```
+
+### By donor
+
+Trinucleotide substitutions are plotted for all biopsies of each donor. Counts 
+in each biopsy are summed per donor.
+
+```{r plot_trinucs_by_donor, class.source = 'fold-hide', fig.height = 12, fig.width = 9}
+p_dat %>%
+  plot_trinucs() +
+  facet_grid(donor_id ~ facet, scales = "free_x")
+```
+
+### By biopsy phenotype
+
+Trinucleotide substitutions are plotted for all patients for each biopsy
+phenotype. Counts in each patient are summed per biopsy phenotype.
+
+```{r plot_trinuc_by_biopsy_phenotype, class.source = 'fold-hide', fig.height = 10, fig.width = 9}
+p_dat %>%
+  plot_trinucs() +
+  facet_grid(biopsy_phenotype ~ facet, scales = "free_x")
+```
+
+### By donor x biopsy phenotype
+
+Trinucleotide susbtitutions are plotted for 
+
+```{r plot_trinuc_by_donor_x_phenotype, class.source = 'fold-hide'}
+p_dat %>%
+  {split(., .$donor_id)} %>%
+  purrr::map(function(df) {
+    df %>%
+      plot_trinucs() +
+      theme(strip.text.y = element_text(angle = 0, hjust = 0, vjust = 0.01)) +
+      facet_grid(biopsy_phenotype ~ facet, scales = "free_x") +
+      ggtitle(unique(df$donor_id))
+  })
+```
