@@ -312,6 +312,7 @@ process NANOSEQ_VAF {
     maxRetries 4
     cpus 2
     memory { task.exitStatus == 130 ? 2.GB * task.attempt : 2.GB }
+    errorStrategy 'retry'
 
     script:
         """
