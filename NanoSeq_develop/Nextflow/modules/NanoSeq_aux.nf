@@ -219,6 +219,7 @@ process VERIFY_BAMID {
     maxRetries 1
     cpus 2
     memory 6.GB
+    errorStrategy 'ignore'
 
     script:
         """

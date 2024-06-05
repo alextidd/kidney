@@ -176,7 +176,7 @@ decodes <-
                     !is.na(existing_pd_id_for_donor)) %>%
       dplyr::transmute(
         sample_id = existing_pd_id_for_donor,
-        donor_id = stringr::str_sub(sample_id, end = -2),
+        donor_id = stringr::str_sub(sample_id, 1, 7),
         donor_sex = gender,
         donor_age = donor_age_at_diagnosis,
         biopsy_phenotype = tissue_phenotype,
@@ -363,14 +363,17 @@ sequencing, not all of the samples that passed sequencing."
 at least one 'normal' sample to call somatic mutations, donors with no normal
 cannot proceed.
 
-4. Standardise `biopsy_phenotype` annotations. Different naming conventions 
+4. Remove donors with only 1 biopsy. If these were to run, it would just be
+querying the normal biopsy against itself, which would yield nothing.
+
+5. Standardise `biopsy_phenotype` annotations. Different naming conventions 
 were used for the same structures across the 4 decode files. I standardised
 these.  
 
-5. Standardise donor metadata. This fixes `donor_sex` categories, ensures all
+6. Standardise donor metadata. This fixes `donor_sex` categories, ensures all
 rows are unique, and runs `tidyr::type_convert()`.
 
-6. Check that `donor_id`, `sample_id`, and `biopsy_id` match up. This is to 
+7. Check that `donor_id`, `sample_id`, and `biopsy_id` match up. This is to 
 ensure that the IDs are consistent across the metadata levels.
 
 ```{r}
@@ -385,8 +388,10 @@ sample_sheet <-
   # 3. remove donors that have no normal biopsies
   dplyr::group_by(donor_id) %>%
   dplyr::filter("Normal" %in% sample_tumour_status) %>%
+  # 4. remove donors with only 1 biopsy
+  dplyr::filter(dplyr::n_distinct(biopsy_id) > 1) %>%
   dplyr::ungroup() %>%
-  # 4. standardise sample phenotype annotations
+  # 5. standardise sample phenotype annotations
   dplyr::mutate(
     biopsy_phenotype = dplyr::case_when(
       biopsy_phenotype %in% c("glomerulus", "glomeruls", "Glomeruli") 
@@ -400,10 +405,10 @@ sample_sheet <-
       biopsy_phenotype == "hybridStromaDCT" 
         ~ "hybrid_stroma_DCT",
       TRUE ~ biopsy_phenotype)) %>%
-  # 5. standardise donor metadata
+  # 6. standardise donor metadata
   cleanup_metadata()
 
-# 6. check that biopsy_id and sample_id and donor_id match up
+# 7. check that biopsy_id and sample_id and donor_id match up
 check <-
   sample_sheet %>%
   dplyr::distinct(sample_id, donor_id, biopsy_id) %>%

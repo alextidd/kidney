@@ -77,7 +77,8 @@ plot_trinucs <- function(trinucs) {
     geom_col(width = 0.5) +
     scale_fill_manual(values = colours_vec) +
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, family = "courier"),
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, family = "courier",
+                                     size = 5),
           legend.position = "none",
           panel.grid = element_blank()) +
     labs(x = "substitution", y = "observed mutation counts")
@@ -197,6 +198,19 @@ post <-
   purrr::map(~ get_files(sample_sheet$id, .x))
 ```
 
+I also want to test for contamination. I load the `verifyBAMid.txt` files for
+these biopsies.
+
+```{r verify_bam_id}
+verify <-
+  post %>% purrr::map(~ .$biopsy_id) %>% unlist() %>% unique() %>%
+  purrr::map(function(biopsy_id) {
+    paste0(nanoseq_dir, biopsy_id, "/verifyBAMid/", biopsy_id, 
+           "_duplex.verifyBAMid.txt") %>%
+      readr::read_delim(delim = ":", skip = 3)
+  })
+```
+
 Next, we combine the burdens from SNVs and from indels into a single long-form
 dataframe.
 
@@ -249,9 +263,8 @@ burdens %>%
   geom_col() +
   scale_x_discrete(guide = guide_axis(angle = -90)) +
   scale_fill_manual(values = phenotype_order) +
-  ggh4x::facet_nested(
-    variant_type + value_type ~ biopsy_phenotype,
-    scales = "free", space = "free_x") +
+  ggh4x::facet_nested(variant_type + value_type ~ biopsy_phenotype,
+                      scales = "free", space = "free_x") +
   theme_bw() +
   theme(panel.spacing = unit(0.1, "cm", data = NULL))
 ```
@@ -265,9 +278,8 @@ burdens %>%
   geom_point() +
   scale_x_discrete(guide = guide_axis(angle = -90)) +
   scale_colour_manual(values = phenotype_order) +
-  ggh4x::facet_nested(
-    value_type ~ variant_type,
-    scales = "free", space = "free_x") +
+  ggh4x::facet_nested(value_type ~ variant_type, scales = "free", 
+                      space = "free_x") +
   theme_bw()
 ```
 
@@ -277,8 +289,10 @@ burdens %>%
 burdens %>%
   dplyr::filter(!is.na(donor_age)) %>%
   dplyr::group_by(donor_id) %>%
-  dplyr::mutate(median_value = median(value)) %>%
-  ggplot(aes(x = donor_age, y = median_value, colour = donor_predisposition)) +
+  dplyr::mutate(median_value = median(value),
+                n_biopsies = dplyr::n_distinct(biopsy_id)) %>%
+  ggplot(aes(x = donor_age, y = median_value, colour = donor_predisposition,
+             size = n_biopsies)) +
   geom_point() +
   theme_bw()
 ```
@@ -303,10 +317,18 @@ p_dat <-
 Trinucleotide substitutions are plotted for all biopsies of each donor. Counts 
 in each biopsy are summed per donor.
 
-```{r plot_trinucs_by_donor, class.source = 'fold-hide', fig.height = 12, fig.width = 9}
+```{r plot_trinucs_by_donor, class.source = 'fold-hide', fig.height = 2.5, fid.width = 10}
 p_dat %>%
-  plot_trinucs() +
-  facet_grid(donor_id ~ facet, scales = "free_x")
+  {split(., .$donor_id)} %>%
+  purrr::map(function(df) {
+    title <- paste0(unique(df$donor_id), 
+                    "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
+                    sum(df$trint_subst_obs), " substitutions")
+    df %>%
+      plot_trinucs() +
+      facet_grid(~ facet, scales = "free_x") +
+      ggtitle(title)
+  })
 ```
 
 ### By biopsy phenotype
@@ -314,24 +336,39 @@ p_dat %>%
 Trinucleotide substitutions are plotted for all patients for each biopsy
 phenotype. Counts in each patient are summed per biopsy phenotype.
 
-```{r plot_trinuc_by_biopsy_phenotype, class.source = 'fold-hide', fig.height = 10, fig.width = 9}
+```{r plot_trinuc_by_biopsy_phenotype, class.source = 'fold-hide', fig.height = 2.5, fid.width = 10}
 p_dat %>%
-  plot_trinucs() +
-  facet_grid(biopsy_phenotype ~ facet, scales = "free_x")
+  {split(., .$biopsy_phenotype)} %>%
+  purrr::walk(function(df) {
+    title <- paste0(unique(df$biopsy_phenotype), 
+                    "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
+                    sum(df$trint_subst_obs), " substitutions")
+    df %>%
+      plot_trinucs() +
+      facet_grid(~ facet, scales = "free_x") +
+      ggtitle(title) 
+  })
 ```
 
 ### By donor x biopsy phenotype
 
 Trinucleotide susbtitutions are plotted for 
 
-```{r plot_trinuc_by_donor_x_phenotype, class.source = 'fold-hide'}
+```{r plot_trinuc_by_donor_x_phenotype, class.source = 'fold-hide', fig.height = 2.5, fid.width = 10}
 p_dat %>%
   {split(., .$donor_id)} %>%
   purrr::map(function(df) {
     df %>%
-      plot_trinucs() +
-      theme(strip.text.y = element_text(angle = 0, hjust = 0, vjust = 0.01)) +
-      facet_grid(biopsy_phenotype ~ facet, scales = "free_x") +
-      ggtitle(unique(df$donor_id))
+      {split(., as.character(.$biopsy_phenotype))} %>%
+      purrr::map(function(df2) {
+        title <- paste0(unique(df2$donor_id), " ", unique(df2$biopsy_phenotype), 
+                        "\n", dplyr::n_distinct(df2$biopsy_id), " biopsies, ",
+                        sum(df2$trint_subst_obs), " substitutions")
+        df2 %>%
+          plot_trinucs() +
+          theme(strip.text.y = element_text(angle = 0, hjust = 0, vjust = 0)) +
+          facet_grid(~ facet, scales = "free_x") +
+          ggtitle(title)
+      })
   })
 ```
