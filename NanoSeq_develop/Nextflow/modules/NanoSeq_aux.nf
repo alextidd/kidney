@@ -150,8 +150,6 @@ process NANOSEQ_ADD_RB {
 process NANOSEQ_DEDUP {
 
     tag "${meta.id}_${meta.type}"
-    label "normal4core20gb"
-    errorStrategy 'retry'
 
     container params.nanoseq_image
 
@@ -163,6 +161,10 @@ process NANOSEQ_DEDUP {
     output:
         tuple val(meta), path("out/${meta.name}.neat.${meta.ext}"), path("out/${meta.name}.neat.${meta.ind_ext}"), emit: cram
         path  "versions.yml", emit: versions
+
+    maxRetries 4
+    cpus 1
+    memory { task.exitStatus == 130  ? 2.GB * task.attempt : 2.GB }
 
     script:
         """
@@ -219,7 +221,6 @@ process VERIFY_BAMID {
     maxRetries 1
     cpus 2
     memory 6.GB
-    errorStrategy 'ignore'
 
     script:
         """

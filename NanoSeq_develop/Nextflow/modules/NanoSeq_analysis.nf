@@ -390,7 +390,6 @@ process POST {
         path("post/*.tsv"), emit: tsv optional true
         path("post/*.pdf"), emit: pdf optional true
 
-
     cpus 2
     memory {  task.exitStatus == 130  ? 5.GB * task.attempt : 5.GB }
 

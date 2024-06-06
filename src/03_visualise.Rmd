@@ -202,6 +202,7 @@ I also want to test for contamination. I load the `verifyBAMid.txt` files for
 these biopsies.
 
 ```{r verify_bam_id}
+# TODO: implement this
 verify <-
   post %>% purrr::map(~ .$biopsy_id) %>% unlist() %>% unique() %>%
   purrr::map(function(biopsy_id) {
@@ -258,6 +259,7 @@ burdens %>%
 ### Burdens, counts, and totals vs biopsy ID
 
 ```{r plot_burdens_vs_biopsy, class.source = 'fold-hide', fig.width = 12, fig.height = 12}
+# TODO: reorder_within by age
 burdens %>%
   ggplot(aes(x = biopsy_id, y = value, fill = biopsy_phenotype)) +
   geom_col() +
