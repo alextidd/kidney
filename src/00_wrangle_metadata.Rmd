@@ -16,6 +16,8 @@ output:
 
 ```{r setup, include = F, message = F, warning = F, class.source = 'fold-hide'}
 # Rscript -e "rmarkdown::render('src/00_wrangle_metadata.Rmd', output_dir = 'out/metadata/')" # nolint: line_length_linter.
+
+# knitr options
 knitr::opts_knit$set(root.dir = "../")
 knitr::opts_chunk$set(warning = FALSE, dpi = 300, message = FALSE)
 
@@ -524,9 +526,9 @@ biopsy_metadata %>%
 
 # Generating sample sheets
 
-## `sample_sheet.csv` for nf-kidney
+## `sample_sheet.csv` for nf-merge-normal-bams
 
-The `nf-kidney` pipeline merges normal BAMs from each donor to use as a
+The `nf-merge-normal-bams` pipeline merges normal BAMs from each donor to use as a
 matched normal for the `NanoSeq` pipeline. It requires a sample sheet with the
 columns `donor_id`, `sample_id`, `biopsy_id`, and `sample_tumour_status`.
 
@@ -540,7 +542,7 @@ sample_sheet %>%
 The `NanoSeq` pipeline requires a sample sheet with the columns `id` 
 (equivalent to `biopsy_id`), `d_bam` (path to the query BAM), and `n_bam` (path
 to the merged normal BAM). This sample sheet can be generated after 
-`src/01_merge_normal_bams.sh` has successfully run the `nf-kidney` pipeline. 
+`src/01_merge_normal_bams.sh` has successfully run the `nf-merge-normal-bams` pipeline. 
 
 ```{r}
 # transmute
@@ -569,7 +571,7 @@ sample_sheet_nanoseq %>%
 
 There are three key outputs from this script:
 
-1. A sample sheet used as input to the `nf-kidney` pipeline (see `./nf-kidney/`)
+1. A sample sheet used as input to the `nf-merge-normal-bams` pipeline (see `./nf-merge-normal-bams/`)
 
 2. A sample sheet used as input to the `NanoSeq` pipeline (see [cancerit/NanoSeq](https://github.com/cancerit/NanoSeq))
 

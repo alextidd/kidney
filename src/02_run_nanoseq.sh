@@ -26,6 +26,7 @@ nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --var_v 0.05 \
   --var_z 25 \
   --outDir out/nanoseq/ \
+  -c config/resources.config \
   -c /lustre/scratch125/casm/team268im/at31/RA_som_mut/scomatic/config/LSF.config \
   -resume \
   -N at31@sanger.ac.uk

@@ -17,7 +17,7 @@ output:
 ```{r setup, include = F, message = F, warning = F, class.source = 'fold-hide'}
 # Rscript -e "rmarkdown::render('src/03_visualise.Rmd', output_dir = 'out/nanoseq/analysis/')" # nolint: line_length_linter.
 
-# knitr opts 
+# knitr opts
 knitr::opts_knit$set(root.dir = "../")
 knitr::opts_chunk$set(warning = FALSE, dpi = 300, message = FALSE)
 
@@ -190,7 +190,7 @@ I want to visualise the counts and burdens of indels and SNVs, and to plot the
 distribution of trinucleotide substitutions. First, we load the relevant files.
 
 ```{r load_post}
-post <- 
+post <-
   list("mut_burden" = ".mut_burden.tsv$",
        "trint_subs_obs_corrected" = ".trint_subs_obs_corrected.tsv$",
        "indel" = ".indel.vcf.gz$",
@@ -204,9 +204,12 @@ these biopsies.
 ```{r verify_bam_id}
 # TODO: implement this
 verify <-
-  post %>% purrr::map(~ .$biopsy_id) %>% unlist() %>% unique() %>%
+  post %>%
+  purrr::map(~ .$biopsy_id) %>%
+  unlist() %>%
+  unique() %>%
   purrr::map(function(biopsy_id) {
-    paste0(nanoseq_dir, biopsy_id, "/verifyBAMid/", biopsy_id, 
+    paste0(nanoseq_dir, biopsy_id, "/verifyBAMid/", biopsy_id,
            "_duplex.verifyBAMid.txt") %>%
       readr::read_delim(delim = ":", skip = 3)
   })
@@ -229,7 +232,7 @@ N.B. `total` values for indels and SNVs will be the same in each biopsy.
 burdens <-
   post[["mut_burden"]] %>%
   # standardise names
-  dplyr::transmute(biopsy_id, snv_count = muts, snv_burden = burden, 
+  dplyr::transmute(biopsy_id, snv_count = muts, snv_burden = burden,
                    total, snv_total = total, indel_total = total) %>%
   dplyr::left_join(post[["indel"]] %>%
                      dplyr::select(biopsy_id, indel_count = n) %>%
@@ -237,12 +240,11 @@ burdens <-
   # calculate indel burden
   dplyr::mutate(indel_burden = indel_count / total) %>%
   # convert to long format
-  tidyr::pivot_longer(
-    cols = c(dplyr::ends_with("_count"), 
-             dplyr::ends_with("_burden"),
-             dplyr::ends_with("_total")),
-    names_pattern = "([^.]+)\\_([^.]+)$",
-    names_to = c("variant_type", "value_type")) %>%
+  tidyr::pivot_longer(cols = c(dplyr::ends_with("_count"),
+                               dplyr::ends_with("_burden"),
+                               dplyr::ends_with("_total")),
+                      names_pattern = "([^.]+)\\_([^.]+)$",
+                      names_to = c("variant_type", "value_type")) %>%
   # add metadata
   dplyr::left_join(biopsy_metadata)
 
@@ -280,7 +282,7 @@ burdens %>%
   geom_point() +
   scale_x_discrete(guide = guide_axis(angle = -90)) +
   scale_colour_manual(values = phenotype_order) +
-  ggh4x::facet_nested(value_type ~ variant_type, scales = "free", 
+  ggh4x::facet_nested(value_type ~ variant_type, scales = "free",
                       space = "free_x") +
   theme_bw()
 ```
@@ -323,7 +325,7 @@ in each biopsy are summed per donor.
 p_dat %>%
   {split(., .$donor_id)} %>%
   purrr::map(function(df) {
-    title <- paste0(unique(df$donor_id), 
+    title <- paste0(unique(df$donor_id),
                     "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
                     sum(df$trint_subst_obs), " substitutions")
     df %>%
@@ -342,13 +344,13 @@ phenotype. Counts in each patient are summed per biopsy phenotype.
 p_dat %>%
   {split(., .$biopsy_phenotype)} %>%
   purrr::walk(function(df) {
-    title <- paste0(unique(df$biopsy_phenotype), 
+    title <- paste0(unique(df$biopsy_phenotype),
                     "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
                     sum(df$trint_subst_obs), " substitutions")
     df %>%
       plot_trinucs() +
       facet_grid(~ facet, scales = "free_x") +
-      ggtitle(title) 
+      ggtitle(title)
   })
 ```
 
@@ -363,7 +365,7 @@ p_dat %>%
     df %>%
       {split(., as.character(.$biopsy_phenotype))} %>%
       purrr::map(function(df2) {
-        title <- paste0(unique(df2$donor_id), " ", unique(df2$biopsy_phenotype), 
+        title <- paste0(unique(df2$donor_id), " ", unique(df2$biopsy_phenotype),
                         "\n", dplyr::n_distinct(df2$biopsy_id), " biopsies, ",
                         sum(df2$trint_subst_obs), " substitutions")
         df2 %>%

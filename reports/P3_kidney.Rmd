@@ -1,0 +1,57 @@
+---
+output: 
+  stevetemplates::article2:
+    citation_package: natbib
+    dev: cairo_pdf
+    keep_tex: true
+biblio-style: apsr
+title: "Mutational processes in normal and cancer-predisposed kidney"
+thanks: "Replication files are available on the author's Github account (http://github.com/svmiller/svm-r-markdown-templates). **Current version**: `r format(Sys.time(), '%B %d, %Y')`; **Corresponding author**: steven.v.miller@gmail.com."
+author:
+- name: Alexandra Tidd
+  affiliation: The Wellcome Sanger Institute
+- name: Chloe Pacyna
+  affiliation: The Wellcome Sanger Institute
+- name: Peter Campbell
+  affiliation: The Wellcome Sanger Institute
+abstract: ""
+keywords: "kidney, blood, NanoSeq, cancer, mutational processes"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+# mainfont: LiberationSerif
+fontsize: 11pt
+# doublespacing: TRUE
+endnote: no
+# pandocparas: TRUE
+sansitup: FALSE
+header-includes:
+  - \usepackage{longtable}
+  - \LTcapwidth=.95\textwidth
+  - \linespread{1.05}
+  - \usepackage{hyperref}
+---
+
+```{r setup, include=FALSE}
+# Rscript -e "rmarkdown::render('reports/P3_kidney.Rmd', output_dir = 'out/analysis/')" # nolint: line_length_linter.
+
+# knitr opts
+knitr::opts_knit$set(root.dir = "../")
+knitr::opts_chunk$set(warning = FALSE, dpi = 300, message = FALSE)
+```
+
+# Introduction
+
+\kant[1]
+
+# Methods
+
+\kant[2]
+
+
+
+# Results
+
+\kant[24]
+
+# Discussion
+
