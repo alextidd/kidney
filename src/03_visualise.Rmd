@@ -38,7 +38,8 @@ get_files <- function(biopsy_ids, ext) {
     purrr::set_names(., .) %>%
     purrr::map(function(biopsy_id) {
       list.files(file.path(nanoseq_dir, biopsy_id, "post"),
-                 full.names = TRUE, pattern = ext)
+        full.names = TRUE, pattern = ext
+      )
     }) %>%
     # remove empty elements
     Filter(length, .)
@@ -48,7 +49,9 @@ get_files <- function(biopsy_ids, ext) {
     out <-
       files %>%
       purrr::map_df(function(file) {
-        file %>% read.table() %>% tibble::as_tibble(rownames = "row")
+        file %>%
+          read.table() %>%
+          tibble::as_tibble(rownames = "row")
       }, .id = "biopsy_id")
   } else if (grepl("vcf.gz", ext) == TRUE) {
     # load vcf
@@ -77,10 +80,14 @@ plot_trinucs <- function(trinucs) {
     geom_col(width = 0.5) +
     scale_fill_manual(values = trinuc_colours) +
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, family = "courier",
-                                     size = 5),
-          legend.position = "none",
-          panel.grid = element_blank()) +
+    theme(
+      axis.text.x = element_text(
+        angle = 90, hjust = 1, family = "courier",
+        size = 5
+      ),
+      legend.position = "none",
+      panel.grid = element_blank()
+    ) +
     labs(x = "substitution", y = "observed mutation counts")
 }
 
@@ -92,21 +99,25 @@ plot_trinucs <- function(trinucs) {
 # Henle, the ascending loop of Henle, distal convoluted tubule, and collecting
 # duct. The glomerulus is found within the Bowman's capsule.
 phenotype_colours <-
-  c("glomerulus" = "#66A61E",
+  c(
+    "glomerulus" = "#66A61E",
     "PCT" = "#E6AB02",
     "DCT" = "#D95F02",
     "lymphoid_aggregate" = "#7570B3",
     "endothelial" = "#E7298A",
-    "tumour" = "black")
+    "tumour" = "black"
+  )
 
 # set order/colours of trinucleotide subs
 trinuc_colours <-
-  c("C>A" = "deepskyblue",
+  c(
+    "C>A" = "deepskyblue",
     "C>G" = "black",
     "C>T" = "firebrick2",
     "T>A" = "gray",
     "T>C" = "darkolivegreen3",
-    "T>G" = "rosybrown2")
+    "T>G" = "rosybrown2"
+  )
 ```
 
 # Introduction
@@ -125,7 +136,8 @@ sample_sheet <-
 biopsy_metadata <-
   readr::read_tsv("out/metadata/biopsy_metadata.tsv") %>%
   dplyr::mutate(biopsy_phenotype = factor(biopsy_phenotype,
-                                          levels = names(phenotype_colours)))
+    levels = names(phenotype_colours)
+  ))
 ```
 
 # NanoSeq outputs
@@ -191,10 +203,12 @@ distribution of trinucleotide substitutions. First, we load the relevant files.
 
 ```{r load_post}
 post <-
-  list("mut_burden" = ".mut_burden.tsv$",
-       "trint_subs_obs_corrected" = ".trint_subs_obs_corrected.tsv$",
-       "indel" = ".indel.vcf.gz$",
-       "muts" = ".muts.vcf.gz$") %>%
+  list(
+    "mut_burden" = ".mut_burden.tsv$",
+    "trint_subs_obs_corrected" = ".trint_subs_obs_corrected.tsv$",
+    "indel" = ".indel.vcf.gz$",
+    "muts" = ".muts.vcf.gz$"
+  ) %>%
   purrr::map(~ get_files(sample_sheet$id, .x))
 ```
 
@@ -202,15 +216,17 @@ I also want to test for contamination. I load the `verifyBAMid.txt` files for
 these biopsies.
 
 ```{r verify_bam_id}
-# TODO: implement this
+# TODO: implement verify bam id
 verify <-
   post %>%
   purrr::map(~ .$biopsy_id) %>%
   unlist() %>%
   unique() %>%
   purrr::map(function(biopsy_id) {
-    paste0(nanoseq_dir, biopsy_id, "/verifyBAMid/", biopsy_id,
-           "_duplex.verifyBAMid.txt") %>%
+    paste0(
+      nanoseq_dir, biopsy_id, "/verifyBAMid/", biopsy_id,
+      "_duplex.verifyBAMid.txt"
+    ) %>%
       readr::read_delim(delim = ":", skip = 3)
   })
 ```
@@ -232,19 +248,25 @@ N.B. `total` values for indels and SNVs will be the same in each biopsy.
 burdens <-
   post[["mut_burden"]] %>%
   # standardise names
-  dplyr::transmute(biopsy_id, snv_count = muts, snv_burden = burden,
-                   total, snv_total = total, indel_total = total) %>%
+  dplyr::transmute(biopsy_id,
+    snv_count = muts, snv_burden = burden,
+    total, snv_total = total, indel_total = total
+  ) %>%
   dplyr::left_join(post[["indel"]] %>%
-                     dplyr::select(biopsy_id, indel_count = n) %>%
-                     dplyr::distinct()) %>%
+    dplyr::select(biopsy_id, indel_count = n) %>%
+    dplyr::distinct()) %>%
   # calculate indel burden
   dplyr::mutate(indel_burden = indel_count / total) %>%
   # convert to long format
-  tidyr::pivot_longer(cols = c(dplyr::ends_with("_count"),
-                               dplyr::ends_with("_burden"),
-                               dplyr::ends_with("_total")),
-                      names_pattern = "([^.]+)\\_([^.]+)$",
-                      names_to = c("variant_type", "value_type")) %>%
+  tidyr::pivot_longer(
+    cols = c(
+      dplyr::ends_with("_count"),
+      dplyr::ends_with("_burden"),
+      dplyr::ends_with("_total")
+    ),
+    names_pattern = "([^.]+)\\_([^.]+)$",
+    names_to = c("variant_type", "value_type")
+  ) %>%
   # add metadata
   dplyr::left_join(biopsy_metadata)
 
@@ -268,7 +290,8 @@ burdens %>%
   scale_x_discrete(guide = guide_axis(angle = -90)) +
   scale_fill_manual(values = phenotype_colours) +
   ggh4x::facet_nested(variant_type + value_type ~ biopsy_phenotype,
-                      scales = "free", space = "free_x") +
+    scales = "free", space = "free_x"
+  ) +
   theme_bw() +
   theme(panel.spacing = unit(0.1, "cm", data = NULL))
 ```
@@ -282,8 +305,10 @@ burdens %>%
   geom_point() +
   scale_x_discrete(guide = guide_axis(angle = -90)) +
   scale_colour_manual(values = phenotype_colours) +
-  ggh4x::facet_nested(value_type ~ variant_type, scales = "free",
-                      space = "free_x") +
+  ggh4x::facet_nested(value_type ~ variant_type,
+    scales = "free",
+    space = "free_x"
+  ) +
   theme_bw()
 ```
 
@@ -296,10 +321,14 @@ p_dat <-
   dplyr::rename(substitution = row) %>%
   # add metadata
   dplyr::left_join(biopsy_metadata) %>%
-  dplyr::mutate(facet = paste0(stringr::str_sub(substitution, 2, 2),
-                               ">",
-                               stringr::str_sub(substitution, 5, 5)),
-                trinuc = stringr::str_sub(substitution, 1, 3))
+  dplyr::mutate(
+    facet = paste0(
+      stringr::str_sub(substitution, 2, 2),
+      ">",
+      stringr::str_sub(substitution, 5, 5)
+    ),
+    trinuc = stringr::str_sub(substitution, 1, 3)
+  )
 ```
 
 ### By donor
@@ -309,14 +338,18 @@ in each biopsy are summed per donor.
 
 ```{r plot_trinucs_by_donor, class.source = 'fold-hide', fig.height = 2.5, fid.width = 10}
 p_dat %>%
-  {split(., .$donor_id)} %>%
+  {
+    split(., .$donor_id)
+  } %>%
   purrr::map(function(df) {
-    title <- paste0(unique(df$donor_id),
-                    "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
-                    sum(df$trint_subst_obs), " substitutions")
+    title <- paste0(
+      unique(df$donor_id),
+      "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
+      sum(df$trint_subst_obs), " substitutions"
+    )
     df %>%
       plot_trinucs() +
-      facet_grid(~ facet, scales = "free_x") +
+      facet_grid(~facet, scales = "free_x") +
       ggtitle(title)
   })
 ```
@@ -328,14 +361,18 @@ phenotype. Counts in each patient are summed per biopsy phenotype.
 
 ```{r plot_trinuc_by_biopsy_phenotype, class.source = 'fold-hide', fig.height = 2.5, fid.width = 10}
 p_dat %>%
-  {split(., .$biopsy_phenotype)} %>%
+  {
+    split(., .$biopsy_phenotype)
+  } %>%
   purrr::map(function(df) {
-    title <- paste0(unique(df$biopsy_phenotype),
-                    "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
-                    sum(df$trint_subst_obs), " substitutions")
+    title <- paste0(
+      unique(df$biopsy_phenotype),
+      "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
+      sum(df$trint_subst_obs), " substitutions"
+    )
     df %>%
       plot_trinucs() +
-      facet_grid(~ facet, scales = "free_x") +
+      facet_grid(~facet, scales = "free_x") +
       ggtitle(title)
   })
 ```
@@ -346,18 +383,24 @@ Trinucleotide susbtitutions are plotted for
 
 ```{r plot_trinuc_by_donor_x_phenotype, class.source = 'fold-hide', fig.height = 2.5, fid.width = 10}
 p_dat %>%
-  {split(., .$donor_id)} %>%
+  {
+    split(., .$donor_id)
+  } %>%
   purrr::map(function(df) {
     df %>%
-      {split(., as.character(.$biopsy_phenotype))} %>%
+      {
+        split(., as.character(.$biopsy_phenotype))
+      } %>%
       purrr::map(function(df2) {
-        title <- paste0(unique(df2$donor_id), " ", unique(df2$biopsy_phenotype),
-                        "\n", dplyr::n_distinct(df2$biopsy_id), " biopsies, ",
-                        sum(df2$trint_subst_obs), " substitutions")
+        title <- paste0(
+          unique(df2$donor_id), " ", unique(df2$biopsy_phenotype),
+          "\n", dplyr::n_distinct(df2$biopsy_id), " biopsies, ",
+          sum(df2$trint_subst_obs), " substitutions"
+        )
         df2 %>%
           plot_trinucs() +
           theme(strip.text.y = element_text(angle = 0, hjust = 0, vjust = 0)) +
-          facet_grid(~ facet, scales = "free_x") +
+          facet_grid(~facet, scales = "free_x") +
           ggtitle(title)
       })
   })

@@ -4,13 +4,18 @@
 # load singularity
 module load singularity
 
+# exclude samples that have already run to completion from sample sheet
+ls out/nanoseq/outNextflow/*/post/*.indel.vcf.gz | cut -d/ -f4 | 
+grep -v -f - out/nanoseq/sample_sheet.csv \
+> out/nanoseq/sample_sheet.csv.tmp
+
 # run nanoseq pipeline
 # increase maximum normal VAF (var_v) because query variants will be in the matched normal (due to pseudobulking)
 # increase coverage (var_z) because matched normal is huge (was 12 before)
 nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --jobs 200 -qs 300 -profile lsf_singularity \
   -w work/ \
-  --sample_sheet out/nanoseq/sample_sheet.csv \
+  --sample_sheet out/nanoseq/sample_sheet.csv.tmp \
   --remap false \
   --grch37 true  \
   --dsa_d 2 \
@@ -27,6 +32,5 @@ nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --var_z 25 \
   --outDir out/nanoseq/ \
   -c config/resources.config \
-  -c /lustre/scratch125/casm/team268im/at31/RA_som_mut/scomatic/config/LSF.config \
   -resume \
   -N at31@sanger.ac.uk
