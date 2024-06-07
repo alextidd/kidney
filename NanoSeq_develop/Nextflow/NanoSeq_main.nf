@@ -1,5 +1,8 @@
 nextflow.enable.dsl=2
 
+// TODO: move this all to a config file
+// TODO: implement nf-schema?
+
 //"docker://quay.io/wtsicgp/pcap-core:5.7.0"
 params.bwa_image = "docker://quay.io/wtsicgp/pcap-core:5.7.0"
 //"docker://quay.io/wtsicgp/nanoseq:3.0.0"

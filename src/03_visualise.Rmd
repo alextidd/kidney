@@ -287,20 +287,6 @@ burdens %>%
   theme_bw()
 ```
 
-### Median burden per donor vs donor age
-
-```{r plot_med_burden_vs_age, class.source = 'fold-hide'}
-burdens %>%
-  dplyr::filter(!is.na(donor_age)) %>%
-  dplyr::group_by(donor_id) %>%
-  dplyr::mutate(median_value = median(value),
-                n_biopsies = dplyr::n_distinct(biopsy_id)) %>%
-  ggplot(aes(x = donor_age, y = median_value, colour = donor_predisposition,
-             size = n_biopsies)) +
-  geom_point() +
-  theme_bw()
-```
-
 ## Trinucleotide substitutions
 
 ```{r trinucs_p_dat}
@@ -343,7 +329,7 @@ phenotype. Counts in each patient are summed per biopsy phenotype.
 ```{r plot_trinuc_by_biopsy_phenotype, class.source = 'fold-hide', fig.height = 2.5, fid.width = 10}
 p_dat %>%
   {split(., .$biopsy_phenotype)} %>%
-  purrr::walk(function(df) {
+  purrr::map(function(df) {
     title <- paste0(unique(df$biopsy_phenotype),
                     "\n", dplyr::n_distinct(df$biopsy_id), " biopsies, ",
                     sum(df$trint_subst_obs), " substitutions")
