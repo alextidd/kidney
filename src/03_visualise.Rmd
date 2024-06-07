@@ -75,7 +75,7 @@ plot_trinucs <- function(trinucs) {
   trinucs %>%
     ggplot(aes(x = trinuc, y = trint_subst_obs, fill = facet)) +
     geom_col(width = 0.5) +
-    scale_fill_manual(values = colours_vec) +
+    scale_fill_manual(values = trinuc_colours) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 90, hjust = 1, family = "courier",
                                      size = 5),
@@ -91,7 +91,7 @@ plot_trinucs <- function(trinucs) {
 # by the Bowman's capsule, proximal convoluted tubule, the descending loop of
 # Henle, the ascending loop of Henle, distal convoluted tubule, and collecting
 # duct. The glomerulus is found within the Bowman's capsule.
-phenotype_order <-
+phenotype_colours <-
   c("glomerulus" = "#66A61E",
     "PCT" = "#E6AB02",
     "DCT" = "#D95F02",
@@ -100,7 +100,7 @@ phenotype_order <-
     "tumour" = "black")
 
 # set order/colours of trinucleotide subs
-colours_vec <-
+trinuc_colours <-
   c("C>A" = "deepskyblue",
     "C>G" = "black",
     "C>T" = "firebrick2",
@@ -125,7 +125,7 @@ sample_sheet <-
 biopsy_metadata <-
   readr::read_tsv("out/metadata/biopsy_metadata.tsv") %>%
   dplyr::mutate(biopsy_phenotype = factor(biopsy_phenotype,
-                                          levels = names(phenotype_order)))
+                                          levels = names(phenotype_colours)))
 ```
 
 # NanoSeq outputs
@@ -266,7 +266,7 @@ burdens %>%
   ggplot(aes(x = biopsy_id, y = value, fill = biopsy_phenotype)) +
   geom_col() +
   scale_x_discrete(guide = guide_axis(angle = -90)) +
-  scale_fill_manual(values = phenotype_order) +
+  scale_fill_manual(values = phenotype_colours) +
   ggh4x::facet_nested(variant_type + value_type ~ biopsy_phenotype,
                       scales = "free", space = "free_x") +
   theme_bw() +
@@ -281,7 +281,7 @@ burdens %>%
   ggplot(aes(x = donor_age, y = value, colour = biopsy_phenotype)) +
   geom_point() +
   scale_x_discrete(guide = guide_axis(angle = -90)) +
-  scale_colour_manual(values = phenotype_order) +
+  scale_colour_manual(values = phenotype_colours) +
   ggh4x::facet_nested(value_type ~ variant_type, scales = "free",
                       space = "free_x") +
   theme_bw()
