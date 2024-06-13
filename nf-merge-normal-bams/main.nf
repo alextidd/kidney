@@ -12,7 +12,7 @@ include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } fr
 process merge_normal_bams {
     tag "${meta.donor_id}"
     label "week16core10gb"
-    publishDir "${params.out_dir}/merged_normal_bams/", mode:"copy"
+    publishDir "${params.out_dir}/", mode:"copy"
     conda '/nfs/users/nfs_a/at31/miniforge3/envs/samtools'
 
     input:

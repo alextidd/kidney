@@ -6,7 +6,6 @@ output:
     keep_tex: true
 biblio-style: apsr
 title: "Mutational processes in normal and cancer-predisposed kidney"
-thanks: "Replication files are available on the author's Github account (http://github.com/svmiller/svm-r-markdown-templates). **Current version**: `r format(Sys.time(), '%B %d, %Y')`; **Corresponding author**: steven.v.miller@gmail.com."
 author:
 - name: Alexandra Tidd
   affiliation: The Wellcome Sanger Institute
@@ -31,27 +30,210 @@ header-includes:
   - \usepackage{hyperref}
 ---
 
-```{r setup, include=FALSE}
-# Rscript -e "rmarkdown::render('reports/P3_kidney.Rmd', output_dir = 'out/analysis/')" # nolint: line_length_linter.
+```{r setup, include = FALSE}
+# module load R/4.4.0 ; Rscript -e "rmarkdown::render('reports/P3_kidney.Rmd', output_dir = 'out/analysis/')" # nolint: line_length_linter.
 
-# knitr opts
+# knitr options
 knitr::opts_knit$set(root.dir = "../")
 knitr::opts_chunk$set(warning = FALSE, dpi = 300, message = FALSE)
+options(knitr.kable.NA = "-")
+
+# libraries
+library(magrittr)
+library(dplyr)
+```
+
+```{r setup2, include = FALSE}
+# read canapps QC
+qc <-
+  readxl::read_xlsx("data/Cancer_Pipeline_Reports_SampleDetails.xlsx") %>%
+  transmute(biopsy_id = Sample, biopsy_coverage = `Seq X`)
+
+# load biopsy_metadata
+biopsy_metadata <-
+  readr::read_tsv("out/metadata/biopsy_metadata.tsv") %>%
+  # filter to those that finished the nanoseq pipeline
+  filter(file.exists(paste0("out/nanoseq/outNextflow/", biopsy_id,
+                            "/post/", biopsy_id, ".indel.vcf.gz"))) %>%
+  # add coverage
+  left_join(qc)
+
+# collapse donor metadata
+donor_metadata <-
+  biopsy_metadata %>%
+  dplyr::select(starts_with("donor_")) %>%
+  distinct()
 ```
 
 # Introduction
 
-\kant[1]
+Genomic instability has been well-established as one of the foundational
+hallmarks of cancer. However, in recent years it has emerged that phenotypically
+normal tissues also harbour many somatic mutations, accrued throughout life.
+These include many neutral mutations, but also a surprising number of functional
+mutations, with many falling in cancer driver genes. This previously unseen
+hotbed of mutational activity opens up new questions about the continuum between
+'normal' and 'diseased' tissue states and the role of somatic mutations
+accumulating with age in cancer and other disease.
+
+By surveying somatic mutational processes in different cells across tissues, we
+can begin to understand the extent of this process across the body and how it
+relates to disease states, celltype-intrinsic processes, tissue contexts, and
+environmental exposures.
+
+## Somatic mutation detection
+
+Historically, it has been difficult to study somatic mutations in normal
+tissues, due to their very small clone sizes and their rate within the genome
+being lower than the error rate of standard next generation sequencing. However,
+the new nanorate duplex sequencing technology, NanoSeq, now empowers us to study
+these mutations in unprecedented detail. 
+
+## Studying mutational processes in normal and predisposed kidney 
+
+Studying the mutational processes in normal tissues is key to understanding the 
+aetiology of disease. 
+
+In this study, we apply NanoSeq to LCM cuts taken from tumours 
+and from normal adjacent microstructures in a unique cohort of kidney cancer 
+patients, including both predisposed and sporadic cases.
+
+By characterising the mutational footprint in each functional unit of the kidney
+and in the tumour, we can chart the mutational processes that have shaped the 
+tissue and potentially identify those pushing cells along the path to cancer.
 
 # Methods
 
-\kant[2]
+## Cohort
+
+NanoSeq was performed on `r n_distinct(biopsy_metadata$biopsy_id)` cuts from 
+`r n_distinct(biopsy_metadata$sample_id)` sections of normal and tumour biopsies 
+from `r n_distinct(biopsy_metadata$donor_id)` kidney cancer patients. 
+Unfortunately, ages are missing for `r sum(is.na(donor_metadata$donor_age))` of 
+the donors.
+
+## Laser-capture microdissection
+
+```{r n_per_phenotype, include = FALSE}
+n_phenotypes <-
+  biopsy_metadata %>%
+  count(biopsy_phenotype, sort = TRUE) %>%
+  {paste(.$n, .$biopsy_phenotype, collapse = ", ")}
+```
+
+Tissue processing and LCM were performed as previously described [33318691].
+Kidney samples were fixed, embedded, sectioned, and H&E-stained prior to
+laser-capture microdissection. During LCM, the different microstructures of the
+nephron (glomerulus, proximal convoluted tubule, distal convoluted tubule) and
+other populations of interest (lymphoid aggregates, fat, endothelium, nerve,
+stroma) were collected together into separate wells. In all, `r n_phenotypes`
+were collected.
+
+```{r cohort, echo = FALSE}
+biopsy_metadata %>%
+  filter(!is.na(biopsy_phenotype)) %>%
+  rename_with(~stringr::str_replace(., "donor_", "")) %>%
+  group_by(id, age, sex, predisposition, diagnosis) %>%
+  count(biopsy_phenotype, sort = TRUE) %>%
+  mutate(total = sum(n)) %>%
+  tidyr::pivot_wider(names_from = "biopsy_phenotype", values_from = "n",
+                     values_fill = 0) %>%
+  arrange(-total) %>%
+  # shorten long col names
+  rename(`lymphoid agg` = lymphoid_aggregate, endo = endothelial,
+         glom = glomerulus) %>%
+  knitr::kable(format = "latex", align = "c", booktabs = TRUE, linesep = "") %>%
+  kableExtra::row_spec(0, bold = TRUE) %>%
+  kableExtra::kable_styling(font_size = 12, latex_options = "scale_down")
+```
+
+## Restriction enzyme NanoSeq
+
+This study leverages Restriction Enzyme (RE) NanoSeq. RE NanoSeq was performed
+on the LCM cuts as previously described [33911282], producing one `BAM` for each
+cut. RE NanoSeq captures ~30% of the genome surrounding restriction sites. Cuts
+were sequenced to a median of 
+`r round(median(biopsy_metadata$biopsy_coverage), 0)`x coverage (min = 
+`r round(min(biopsy_metadata$biopsy_coverage), 0)`x, max = 
+`r round(max(biopsy_metadata$biopsy_coverage), 0)`x). 
+
+## Pseudobulking normal `BAM`s
+
+In order to call somatic variants from the data, we must first exclude germline
+SNPs. Ordinarily for germline variant exclusion, it is ideal to have a 'matched
+LCM normal' cut, comprised of ~1,000 cells of unrelated cell types taken from
+each patient. Unfortunately, matched normal cuts were not taken from these
+donors. In lieu of this, all of the non-tumour `BAM`s from each donor were
+merged together to form a 'pseudobulk' `BAM`, in the hopes that this pooling
+would dilute out any small somatic clones and would provide a strong consensus
+germline signal for SNP filtering. This was only possible for donors with at
+least two normal cuts.
+
+## NanoSeq pipeline
+
+The Nextflow implementation of the 
+[NanoSeq pipeline](https://github.com/cancerit/NanoSeq) was run on all `BAM`s
+on the HPC (off-pipe) using the following command:
+
+```
+nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
+  --jobs 200 \
+  -qs 300 \
+  -profile lsf_singularity \
+  --sample_sheet out/nanoseq/sample_sheet.csv \
+  --remap false \
+  --grch37 true  \
+  --dsa_d 2 \
+  --cov_Q 15 \
+  --var_b 0 \
+  --var_n 3  \
+  --var_a 50 \
+  --var_d 2 \
+  --var_r 144 \
+  --var_x 8 \
+  --indel_rb 2 \
+  --var_q 40 \
+  --var_v 0.05 \
+  --var_z 25
+```
+
+Human reference genome build GRCh37 was used for alignment. Most parameters were
+set to those recommended in the pipeline documentation. The `--var_v` parameter,
+however, was raised from 0.01 to 0.05. This parameter assigns the maximum normal
+variant allele frequency (VAF) (???). Because the pseudobulked matched normal
+shares some of its reads with each normal cut, we must relax this to avoid
+filtering out somatic variants inevitably found in both (???).
+
+## Post-processing
+
+### Contamination check
+
+A contamination check was run on all `BAM`s using the 
+[`verifyBamID`](https://github.com/Griffan/VerifyBamID) tool. Outputs with an
+estimated contamination level ('alpha') of > 0.005 were filtered out.
+
+### Estimating burdens, counts per genome, and counts per genome per year
+
+SNV counts were taken as the "corrected" value (value after correcting for 
+trinucleotide context bias in the analysable genome) from the `*.mut_burden.tsv` 
+output file. Indel counts were taken as the sum of all filter-passing mutations 
+from the `*.indel.vcf.gz` output file.
+
+SNV and indel burdens were then calculated by dividing the mutation counts by 
+the total analysable genome size, taken from the "total" column of the 
+`*.mut_burden.tsv` output file. 
+
+Counts per genome were calculated by multiplying these burdens by the diploid 
+human genome size (6,274,289,386 bp for GRCh37). To get counts per genome per 
+year, we divide this by donor age at the time of collection.
+
+### Signature decomposition
 
 
 
 # Results
 
-\kant[24]
+
 
 # Discussion
 

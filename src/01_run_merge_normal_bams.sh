@@ -4,5 +4,5 @@
 # merge bams
 nextflow run nf-merge-normal-bams \
     --sample_sheet out/merge_normal_bams/sample_sheet.csv \
-    --out_dir out \
+    --out_dir out/merged_normal_bams/ \
     -c /lustre/scratch125/casm/team268im/at31/RA_som_mut/scomatic/config/LSF.config 
