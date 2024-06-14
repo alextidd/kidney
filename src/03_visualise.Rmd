@@ -15,7 +15,7 @@ output:
 ---
 
 ```{r setup, include = F, message = F, warning = F, class.source = 'fold-hide'}
-# module load R/4.4.0 ; Rscript -e "rmarkdown::render('src/03_visualise.Rmd', output_dir = 'out/nanoseq/analysis/')" # nolint: line_length_linter.
+# module load R/4.4.0 ; Rscript -e "rmarkdown::render('src/03_visualise.Rmd', output_dir = 'out/analysis/')" # nolint: line_length_linter.
 
 # knitr opts
 knitr::opts_knit$set(root.dir = "../")
@@ -23,7 +23,7 @@ knitr::opts_chunk$set(warning = FALSE, dpi = 300, message = FALSE)
 
 # dirs
 nanoseq_dir <- "out/nanoseq/outNextflow/"
-dir.create("out/nanoseq/analysis/", showWarnings = FALSE)
+dir.create("out/analysis/", showWarnings = FALSE)
 
 # libraries
 library(magrittr)
@@ -322,11 +322,11 @@ burdens %>%
 
 # Visualise
 
-## Burdens, counts, and totals
+## Totals, counts, burdens, and genome-wide counts
 
-### Burdens, counts, and totals vs biopsy ID
+### Totals, counts, burdens, and genome-wide counts vs biopsy ID
 
-```{r plot_burdens_vs_biopsy, class.source = 'fold-hide', fig.width = 12, fig.height = 12}
+```{r plot_burdens_vs_biopsy, class.source = 'fold-hide', fig.width = 12, fig.height = 15}
 # TODO: change this to facet by donor_id and then relabel to donor_age_facet
 # (rather than facet directly by donor_age_facet, because there might be
 # multiple donors with the same age)

@@ -1,7 +1,6 @@
 ---
 output: 
-  stevetemplates::article2:
-    citation_package: natbib
+  pdf_document:
     dev: cairo_pdf
     keep_tex: true
 biblio-style: apsr
@@ -17,11 +16,8 @@ abstract: ""
 keywords: "kidney, blood, NanoSeq, cancer, mutational processes"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 geometry: margin=1in
-# mainfont: LiberationSerif
 fontsize: 11pt
-# doublespacing: TRUE
 endnote: no
-# pandocparas: TRUE
 sansitup: FALSE
 header-includes:
   - \usepackage{longtable}
@@ -172,10 +168,11 @@ least two normal cuts.
 ## NanoSeq pipeline
 
 The Nextflow implementation of the 
-[NanoSeq pipeline](https://github.com/cancerit/NanoSeq) was run on all `BAM`s
+[`NanoSeq`](https://github.com/cancerit/NanoSeq) pipeline was run on all `BAM`s
 on the HPC (off-pipe) using the following command:
 
-```
+
+```{bash nanoseq, eval = FALSE}
 nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --jobs 200 \
   -qs 300 \
@@ -197,12 +194,15 @@ nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --var_z 25
 ```
 
+
 Human reference genome build GRCh37 was used for alignment. Most parameters were
 set to those recommended in the pipeline documentation. The `--var_v` parameter,
-however, was raised from 0.01 to 0.05. This parameter assigns the maximum normal
-variant allele frequency (VAF) (???). Because the pseudobulked matched normal
-shares some of its reads with each normal cut, we must relax this to avoid
-filtering out somatic variants inevitably found in both (???).
+however, was raised from 0.01 to 0.05. This parameter assigns the minimum VAF 
+of a variant in the normal `BAM` for that variant to be treated as a germline 
+SNP, and thus filtered out of all query `BAM`s. Because the pseudobulked normal 
+BAM is related to and shares some of its reads with each normal cut, we must 
+relax this threshold to avoid filtering out somatic variants inevitably present 
+in both.
 
 ## Post-processing
 
@@ -214,7 +214,7 @@ estimated contamination level ('alpha') of > 0.005 were filtered out.
 
 ### Estimating burdens, counts per genome, and counts per genome per year
 
-SNV counts were taken as the "corrected" value (value after correcting for 
+SNV counts were taken as the 'corrected' value (value after correcting for 
 trinucleotide context bias in the analysable genome) from the `*.mut_burden.tsv` 
 output file. Indel counts were taken as the sum of all filter-passing mutations 
 from the `*.indel.vcf.gz` output file.
@@ -227,13 +227,49 @@ Counts per genome were calculated by multiplying these burdens by the diploid
 human genome size (6,274,289,386 bp for GRCh37). To get counts per genome per 
 year, we divide this by donor age at the time of collection.
 
+### Linear mixed-effects model
+
+A linear mixed-effects model was used to disentangle the relative effects of 
+donor age and other covariates, including donor sex, donor diagnosis, donor 
+predisposition, and biopsy phenotype (microstructure). This allows us to account
+for structure within the dataset, such as having multiple biopsies from each 
+donor and multiple donors with the same diagnosis. We can thus control for these 
+underlying within-group correlations when generating the model to avoid 
+pseudoreplication.
+
 ### Signature decomposition
 
+Signature decomposition was performed using the 
+[`SigProfilerExtractor`](https://github.com/AlexandrovLab/SigProfilerExtractor)
+package. This was run on all trinucleotide distributions from the `NanoSeq` 
+pipeline output using the following command:
 
+```{python sigprofiler, eval = FALSE, python.reticulate = FALSE}
+sig.sigProfilerExtractor(
+  input_type = "matrix", 
+  output = "./", 
+  input_data = "sigprofiler_matrix_wgs.tsv", 
+  reference_genome = "GRCh37",
+  minimum_signatures = 1,
+  maximum_signatures = 10,
+  nmf_replicates = 100,
+  cpu = -1)
+```
+
+Signature attribution was then performed using the 
+[`MSA`](https://gitlab.com/s.senkin/MSA) package. 
 
 # Results
 
+## Mutation rates vary along the nephron
 
+![Fig1](../out/analysis/03_visualise_files/figure-html/plot_burdens_vs_biopsy-1.png)
+
+## Mutation rates in tumours are lower than in PCTs 
+
+## Mutational signatures reflect known exposures
+
+## Mixed effects model
 
 # Discussion
 

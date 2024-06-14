@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Makes sigprofiler-style mutational matrix from nanoseq "trint_subs_obs_corrected.tsv" output files
 # Usage: python ./sigprofiler_matrix_maker.py <directory_containing_input_files> <output_path>
 # Use within conda env "general" (or your own, that has pandas installed) 
@@ -34,7 +35,7 @@ files = sorted(glob(f"{input_directory}/*trint_subs_obs_corrected.tsv")) # Retur
 ## Iterate through file list and add contents to mutation matrix ##
 print("Generating mutation matrix")
 for file in files: # For each file...
-    sample_name = file.replace(f"{input_directory}/", "")
+    sample_name = os.path.basename(file)
     sample_name = sample_name.replace(".trint_subs_obs_corrected.tsv", "") # store the sample name (i.e. no common text)
     print(f"Parsing sample {sample_name}")
     sample_data = pd.read_table(file).reset_index() # store the sample data (we need to reset index otherwise it won't merge with the mutation matrix properly)
