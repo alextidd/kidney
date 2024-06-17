@@ -156,14 +156,14 @@ were sequenced to a median of
 ## Pseudobulking normal `BAM`s
 
 In order to call somatic variants from the data, we must first exclude germline
-SNPs. Ordinarily for germline variant exclusion, it is ideal to have a 'matched
-LCM normal' cut, comprised of ~1,000 cells of unrelated cell types taken from
-each patient. Unfortunately, matched normal cuts were not taken from these
-donors. In lieu of this, all of the non-tumour `BAM`s from each donor were
-merged together to form a 'pseudobulk' `BAM`, in the hopes that this pooling
-would dilute out any small somatic clones and would provide a strong consensus
-germline signal for SNP filtering. This was only possible for donors with at
-least two normal cuts.
+single nucleotide polymorphisms (SNPs). Ordinarily for germline variant
+exclusion, it is ideal to have a 'matched LCM normal' cut, comprised of ~1,000
+cells of unrelated cell types taken from each patient. Unfortunately, matched
+normal cuts were not taken from these donors. In lieu of this, all of the
+non-tumour `BAM`s from each donor were merged together to form a 'pseudobulk'
+`BAM`, in the hopes that this pooling would dilute out any small somatic clones
+and would provide a strong consensus germline signal for SNP filtering. This was
+only possible for donors with at least two normal cuts.
 
 ## NanoSeq pipeline
 
@@ -223,9 +223,10 @@ SNV and indel burdens were then calculated by dividing the mutation counts by
 the total analysable genome size, taken from the "total" column of the 
 `*.mut_burden.tsv` output file. 
 
-Counts per genome were calculated by multiplying these burdens by the diploid 
-human genome size (6,274,289,386 bp for GRCh37). To get counts per genome per 
-year, we divide this by donor age at the time of collection.
+Counts per genome were calculated by multiplying these burdens by the size of
+the callable diploid genome (5,722,652,910  base pairs for GRCh37). To get
+counts per genome per year, we divide this by donor age at the time of
+collection.
 
 ### Linear mixed-effects model
 

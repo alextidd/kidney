@@ -126,6 +126,10 @@ trinuc_colours <-
     "T>C" = "darkolivegreen3",
     "T>G" = "rosybrown2"
   )
+
+# callable diploid genome size for genome-wide counts from Abascal et al., 2021
+# https://doi.org/10.1038/s41586-021-03477-4
+callable_diploid_genome_bp <- 5722652910
 ```
 
 # Introduction
@@ -271,12 +275,12 @@ Then, we calculate mutations per genome per year. From
 > calculated by multiplying the somatic mutation rate by the estimated lifespan 
 > of the species...
 
-The diploid human genome size for GRCh37 is 6,274,289,386 bp, so we multiply the
-burdens by the full genome size to get mutations per genome. We then divide by
-donor age. to get mutations per genome per year.
+The diploid human genome size for GRCh37 is 
+`r format(callable_diploid_genome_bp, nsmall = 0, big.mark = ",")` bp, so we
+multiply the burdens by the full genome size to get mutations per genome. We
+then divide by donor age. to get mutations per genome per year.
 
 ```{r get_burdens}
-diploid_bp <- 6274289386
 # get all burdens
 burdens <-
   post[["mut_burden"]] %>%
@@ -295,9 +299,9 @@ burdens <-
   # calculate indel burden
   dplyr::mutate(indel_burden = indel_count / total) %>%
   # calculate genome-wide count + yearly genome-wide count
-  dplyr::mutate(indel_countgenome = indel_burden * diploid_bp,
+  dplyr::mutate(indel_countgenome = indel_burden * callable_diploid_genome_bp,
                 indel_countgenomeyearly = indel_countgenome / donor_age,
-                snv_countgenome = snv_burden * diploid_bp,
+                snv_countgenome = snv_burden * callable_diploid_genome_bp,
                 snv_countgenomeyearly = snv_countgenome / donor_age) %>%
   # convert to long format
   tidyr::pivot_longer(
@@ -319,6 +323,12 @@ burdens %>%
   head() %>%
   knitr::kable()
 ```
+
+## Mutational signature analysis
+
+## Linear regression modelling
+
+
 
 # Visualise
 
