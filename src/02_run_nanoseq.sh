@@ -14,7 +14,7 @@ grep -v -f - out/nanoseq/sample_sheet.csv \
 # increase coverage (var_z) because matched normal is huge (was 12 before)
 nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --jobs 200 -qs 300 -profile lsf_singularity \
-  -w work/ \
+  -w NanoSeq_develop/Nextflow/work/ \
   --sample_sheet out/nanoseq/sample_sheet.csv.tmp \
   --remap false \
   --grch37 true  \
@@ -32,5 +32,5 @@ nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
   --var_z 25 \
   --outDir out/nanoseq/ \
   -c config/resources.config \
-  -resume \
-  -N at31@sanger.ac.uk
+  -N at31@sanger.ac.uk \
+  -resume

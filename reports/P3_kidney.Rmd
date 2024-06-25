@@ -6,14 +6,12 @@ output:
 biblio-style: apsr
 title: "Mutational processes in normal and cancer-predisposed kidney"
 author:
-- name: Alexandra Tidd
-  affiliation: The Wellcome Sanger Institute
-- name: Chloe Pacyna
-  affiliation: The Wellcome Sanger Institute
-- name: Peter Campbell
-  affiliation: The Wellcome Sanger Institute
-abstract: ""
-keywords: "kidney, blood, NanoSeq, cancer, mutational processes"
+  - Alexandra Tidd
+  - Chloe Pacyna
+  - Peter Campbell
+affiliation: The Wellcome Sanger Institute
+abstract: "In the past decade, it has become increasingly clear that mutations pervade not just tumours, but also histologically normal tissues. By investigating the extent and types of these mutations in normal contexts, we can begin to unpick neutral and pathological mutational processes and to understand how these mutations contribute to other ageing phenotypes. Here we characterise mutational burdens and signatures in a unique cohort of patients with clear cell renal cell carcinoma (ccRCC). By sequencing tumours cells and adjacent microstructures of the kidney, we may get an insight into the mutational dynamics at play, both in normal and diseased cell states, against the same genetic and microenvironmental backdrop (within-patient), and in the context of different genetic predispositions (betwee-patient)."
+keywords: "kidney, NanoSeq, cancer, mutation"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 geometry: margin=1in
 fontsize: 11pt
@@ -126,7 +124,8 @@ stroma) were collected together into separate wells. In all, `r n_phenotypes`
 were collected.
 
 ```{r cohort, echo = FALSE}
-biopsy_metadata %>%
+df <-
+  biopsy_metadata %>%
   filter(!is.na(biopsy_phenotype)) %>%
   rename_with(~stringr::str_replace(., "donor_", "")) %>%
   group_by(id, age, sex, predisposition, diagnosis) %>%
@@ -137,21 +136,24 @@ biopsy_metadata %>%
   arrange(-total) %>%
   # shorten long col names
   rename(`lymphoid agg` = lymphoid_aggregate, endo = endothelial,
-         glom = glomerulus) %>%
+         glom = glomerulus)
+df %>%
   knitr::kable(format = "latex", align = "c", booktabs = TRUE, linesep = "") %>%
   kableExtra::row_spec(0, bold = TRUE) %>%
-  kableExtra::kable_styling(font_size = 12, latex_options = "scale_down")
+  kableExtra::kable_styling(font_size = 12, 
+                            latex_options = c("scale_down", "HOLD_position"))
 ```
 
 ## Restriction enzyme NanoSeq
 
 This study leverages Restriction Enzyme (RE) NanoSeq. RE NanoSeq was performed
-on the LCM cuts as previously described [33911282], producing one `BAM` for each
-cut. RE NanoSeq captures ~30% of the genome surrounding restriction sites. Cuts
-were sequenced to a median of 
+on the LCM cuts as previously described [33911282]. RE NanoSeq captures ~30% of
+the genome surrounding restriction sites. Cuts were sequenced to a median of 
 `r round(median(biopsy_metadata$biopsy_coverage), 0)`x coverage (min = 
 `r round(min(biopsy_metadata$biopsy_coverage), 0)`x, max = 
-`r round(max(biopsy_metadata$biopsy_coverage), 0)`x). 
+`r round(max(biopsy_metadata$biopsy_coverage), 0)`x). Reads were aligned to 
+human reference genome build GRCh37. This produced 
+`r dplyr::n_distinct(biopsy_metadata$biopsy_bam_file)` `BAM` files.
 
 ## Pseudobulking normal `BAM`s
 
@@ -195,14 +197,13 @@ nextflow run ./NanoSeq_develop/Nextflow/NanoSeq_main.nf  \
 ```
 
 
-Human reference genome build GRCh37 was used for alignment. Most parameters were
-set to those recommended in the pipeline documentation. The `--var_v` parameter,
-however, was raised from 0.01 to 0.05. This parameter assigns the minimum VAF 
-of a variant in the normal `BAM` for that variant to be treated as a germline 
-SNP, and thus filtered out of all query `BAM`s. Because the pseudobulked normal 
-BAM is related to and shares some of its reads with each normal cut, we must 
-relax this threshold to avoid filtering out somatic variants inevitably present 
-in both.
+Most parameters were set to those recommended in the pipeline documentation. The
+`--var_v` parameter, however, was raised from 0.01 to 0.05. This parameter
+assigns the minimum VAF of a variant in the normal `BAM` for that variant to be
+treated as a germline SNP, and thus filtered out of all query `BAM`s. Because
+the pseudobulked normal BAM is related to and shares some of its reads with each
+normal cut, we must relax this threshold to avoid filtering out somatic variants
+inevitably present in both at low levels.
 
 ## Post-processing
 
@@ -210,14 +211,15 @@ in both.
 
 A contamination check was run on all `BAM`s using the 
 [`verifyBamID`](https://github.com/Griffan/VerifyBamID) tool. Outputs with an
-estimated contamination level ('alpha') of > 0.005 were filtered out.
+estimated contamination level ('alpha') of > 0.005 were filtered out, as 
+recommended.
 
 ### Estimating burdens, counts per genome, and counts per genome per year
 
-SNV counts were taken as the 'corrected' value (value after correcting for 
-trinucleotide context bias in the analysable genome) from the `*.mut_burden.tsv` 
-output file. Indel counts were taken as the sum of all filter-passing mutations 
-from the `*.indel.vcf.gz` output file.
+Single nucleotide variant (SNV) counts were taken as the 'corrected' value
+(value after correcting for trinucleotide context bias in the analysable NanoSeq
+genome) from the `*.mut_burden.tsv` output file. Indel counts were taken as the
+sum of all filter-passing mutations from the `*.indel.vcf.gz` output file.
 
 SNV and indel burdens were then calculated by dividing the mutation counts by 
 the total analysable genome size, taken from the "total" column of the 
@@ -234,8 +236,8 @@ A linear mixed-effects model was used to disentangle the relative effects of
 donor age and other covariates, including donor sex, donor diagnosis, donor 
 predisposition, and biopsy phenotype (microstructure). This allows us to account
 for structure within the dataset, such as having multiple biopsies from each 
-donor and multiple donors with the same diagnosis. We can thus control for these 
-underlying within-group correlations when generating the model to avoid 
+donor and multiple donors with the same diagnosis. We must control for these 
+underlying within-group correlations when generating the model to prevent 
 pseudoreplication.
 
 ### Signature decomposition

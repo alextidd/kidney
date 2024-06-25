@@ -1,5 +1,5 @@
 #!/bin/bash
-# cd /lustre/scratch126/casm/team154pc/at31/kidney; bsub -q week -M2000 -R "span[hosts=1] select[mem>2000] rusage[mem=2000]" -J sigprofiler -o log/sigprofiler_%J.out -e log/sigprofiler_%J.err "bash src/03_run_sigprofiler.sh"
+# cd /lustre/scratch126/casm/team154pc/at31/kidney; bsub -q week -M2000 -R "span[hosts=1] select[mem>2000] rusage[mem=2000]" -J sigprofiler -o log/sigprofiler.%J.out -e log/sigprofiler.%J.err "bash src/03_run_sigprofiler.sh"
 
 # dirs
 wd=/lustre/scratch126/casm/team154pc/at31/kidney

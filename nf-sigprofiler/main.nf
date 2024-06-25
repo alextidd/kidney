@@ -70,18 +70,17 @@ process correct_wgs {
 }
 
 process run_sigprofiler {
-  publishDir "${params.out_dir}/", mode: "copy", 
-    pattern: "out/*",
-    saveAs: { fn -> }
-  label "normal10gb"
-  errorStrategy "retry"
-  maxErrors 4
+  publishDir "${params.out_dir}/", mode: "copy"
+  label "week100gb"
+  errorStrategy = 'retry'
+  maxRetries = 5
 
   input:
   path(sigprofiler_matrix_wgs)
 
   output:
-  path("out/*")
+  path("SBS96/*")
+  path("Seeds.txt")
 
   script:
   """
