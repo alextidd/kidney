@@ -93,7 +93,7 @@ process run_sigprofiler {
       input_data = "${sigprofiler_matrix_wgs}", 
       reference_genome = "${params.genome_build}",
       minimum_signatures = 1,
-      maximum_signatures = 10,
+      maximum_signatures = 5,
       nmf_replicates = 100,
       cpu = -1)
   """

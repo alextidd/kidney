@@ -35,6 +35,22 @@ options(knitr.kable.NA = "-")
 # libraries
 library(magrittr)
 library(dplyr)
+library(ggplot2)
+
+# set order/colours of biopsy
+# "The correct pathway within the nephron starts with the glomerulus followed
+# by the Bowman's capsule, proximal convoluted tubule, the descending loop of
+# Henle, the ascending loop of Henle, distal convoluted tubule, and collecting
+# duct. The glomerulus is found within the Bowman's capsule.
+phenotype_colours <-
+  c(
+    "glomerulus" = "#66A61E",
+    "PCT" = "#E6AB02",
+    "DCT" = "#D95F02",
+    "lymphoid_aggregate" = "#7570B3",
+    "endothelial" = "#E7298A",
+    "tumour" = "black"
+  )
 ```
 
 ```{r setup2, include = FALSE}
@@ -55,8 +71,12 @@ biopsy_metadata <-
 # collapse donor metadata
 donor_metadata <-
   biopsy_metadata %>%
-  dplyr::select(starts_with("donor_")) %>%
+  select(starts_with("donor_")) %>%
   distinct()
+
+# load mutations
+burdens <-
+  readRDS("out/analysis/burdens.rds")
 ```
 
 # Introduction
@@ -153,7 +173,7 @@ the genome surrounding restriction sites. Cuts were sequenced to a median of
 `r round(min(biopsy_metadata$biopsy_coverage), 0)`x, max = 
 `r round(max(biopsy_metadata$biopsy_coverage), 0)`x). Reads were aligned to 
 human reference genome build GRCh37. This produced 
-`r dplyr::n_distinct(biopsy_metadata$biopsy_bam_file)` `BAM` files.
+`r n_distinct(biopsy_metadata$biopsy_bam_file)` `BAM` files.
 
 ## Pseudobulking normal `BAM`s
 
@@ -266,7 +286,41 @@ Signature attribution was then performed using the
 
 ## Mutation rates vary along the nephron
 
-![Fig1](../out/analysis/03_visualise_files/figure-html/plot_burdens_vs_biopsy-1.png)
+```{r plot_bar_burdens_and_genomecounts, height = 4, width = 10}
+burdens %>%
+  dplyr::filter(value_type == "countgenome", !is.na(donor_age)) %>%
+  dplyr::mutate(donor_id = forcats::fct_reorder(donor_id, donor_age,
+                                                .na_rm = FALSE),
+                donor_age_facet = paste0(donor_age, "yo")) %>%
+  ggplot(aes(x = tidytext::reorder_within(biopsy_id, value, donor_id),
+             y = value, fill = biopsy_phenotype)) +
+  geom_col() +
+  scale_x_discrete(guide = guide_axis(angle = -90)) +
+  scale_fill_manual(values = phenotype_colours) +
+  ggh4x::facet_nested(variant_type ~
+      biopsy_phenotype + donor_age_facet,
+    scales = "free", remove_labels = "x"
+  ) +
+  theme_bw() +
+  labs(y = "mutation count per genome", x = "") +
+  theme(panel.spacing = unit(0.1, "cm", data = NULL),
+        strip.text.x = element_text(size = 7),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        legend.position = "none")
+```
+
+```{r plot_burdens_and_genomecounts, fig.height = 4, fig.width = 10}
+burdens %>%
+  dplyr::filter(value_type == "countgenome") %>%
+  ggplot(aes(x = donor_age, y = value, colour = biopsy_phenotype)) +
+  geom_point() +
+  geom_smooth(method = "lm", fill = NA) +
+  scale_colour_manual(values = phenotype_colours) +
+  theme_classic() +
+  labs(x = "age (years)", y = "mutations per genome") +
+  facet_wrap(~ variant_type, scales = "free_y")
+```
 
 ## Mutation rates in tumours are lower than in PCTs 
 

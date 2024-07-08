@@ -42,6 +42,16 @@ cleanup_metadata <- function(df) {
           donor_sex == "Unknown" ~ NA_character_,
           TRUE ~ donor_sex))
   }
+  if ("donor_diagnosis" %in% colnames(df)) {
+    df <-
+      df %>%
+      dplyr::mutate(
+        donor_diagnosis = dplyr::case_when(donor_diagnosis == "Oncocytoma" ~
+                                             "oncocytoma",
+                                           donor_diagnosis == "Benign" ~
+                                             "benign",
+                                           TRUE ~ donor_diagnosis))
+  }
   df %>%
     # re-check col types
     readr::type_convert() %>%
@@ -90,18 +100,17 @@ This is an overview of the number of samples cut per patient per histological st
 
 ```{r}
 lcm_log <-
-    readxl::read_xlsx("data/LCM_log_byStructure_kidney.xlsx") %>%
-    dplyr::filter(Sample != "Total") %>%
-    dplyr::transmute(
-        sample_id = Sample,
-        sample_tumour_status = `Tumor?` > 0,
-        donor_id = sample_id %>% stringr::str_sub(end = -2),
-        donor_predisposition = dplyr::case_when(
-            `Predisposition?` == "NA" ~ NA_character_,
-            TRUE ~ `Predisposition?`),
-        donor_diagnosis = Diagnosis) %>%
-    # clean up metadata
-    cleanup_metadata()
+  readxl::read_xlsx("data/LCM_log_byStructure_kidney.xlsx") %>%
+  dplyr::filter(Sample != "Total") %>%
+  dplyr::transmute(
+    sample_id = Sample,
+    sample_tumour_status = `Tumor?` > 0,
+    donor_id = sample_id %>% stringr::str_sub(end = -2),
+    donor_predisposition = dplyr::case_when(`Predisposition?` == "NA" ~ NA,
+                                            TRUE ~ `Predisposition?`),
+    donor_diagnosis = Diagnosis) %>%
+  # clean up metadata
+  cleanup_metadata()
 
 # view
 lcm_log %>%

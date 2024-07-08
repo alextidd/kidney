@@ -142,16 +142,35 @@ This script analyses the output from the `NanoSeq` pipeline for the project
 ## Load metadata
 
 ```{r load_metadata}
-# load sample sheet
+# read canapps QC
+qc <-
+  readxl::read_xlsx("data/Cancer_Pipeline_Reports_SampleDetails.xlsx") %>%
+  dplyr::transmute(biopsy_id = Sample, biopsy_coverage = `Seq X`)
+
+# load nanoseq sample sheet
 sample_sheet <-
   readr::read_csv("out/nanoseq/sample_sheet.csv")
+
+# load pseudobulk sample sheet
+pseudo_sample_sheet <-
+  readr::read_csv("out/merged_normal_bams/sample_sheet.csv") %>%
+  dplyr::filter(sample_tumour_status == "Normal") %>%
+  dplyr::count(donor_id, name = "n_samples_pseudobulked")
 
 # load biopsy metadata and reorder phenotypes
 biopsy_metadata <-
   readr::read_tsv("out/metadata/biopsy_metadata.tsv") %>%
+  # filter to those that finished the nanoseq pipeline
+  dplyr::filter(file.exists(paste0("out/nanoseq/outNextflow/", biopsy_id,
+                            "/post/", biopsy_id, ".indel.vcf.gz"))) %>%
+  # refactor
   dplyr::mutate(biopsy_phenotype = factor(biopsy_phenotype,
     levels = names(phenotype_colours)
-  ))
+  )) %>%
+  # add coverage
+  dplyr::left_join(qc) %>%
+  # add n pseudobulked
+  dplyr::left_join(pseudo_sample_sheet)
 ```
 
 ## NanoSeq outputs
@@ -159,8 +178,73 @@ biopsy_metadata <-
 The output files from the NanoSeq pipeline are located in the `post/` directory.
 
 ```{bash}
-ls -d out/nanoseq/outNextflow/*/post/ | head -1 | xargs ls
+# ls -d out/nanoseq/outNextflow/*/post/ | head -1 | xargs ls
 ```
+
+burdens.csv
+
+callvsqpos.csv
+
+coverage.csv
+
+mismatches.csv
+
+PD43824u_ds0002.burden.masked-vs-unmasked.pdf
+
+PD43824u_ds0002.cov.bed.gz
+
+PD43824u_ds0002.cov.bed.gz.tbi
+
+PD43824u_ds0002.DSC_errors_per_channel.pdf
+
+PD43824u_ds0002.DSC_estimated_error_rates.pdf
+
+PD43824u_ds0002.estimated_error_rates.tsv
+
+PD43824u_ds0002.indel.vcf.gz
+
+PD43824u_ds0002.indel.vcf.gz.tbi
+
+PD43824u_ds0002.mismatches.subst_asym.pdf
+
+PD43824u_ds0002.mismatches.subst_asym.tsv
+
+PD43824u_ds0002.mismatches.trinuc-profile.pdf
+
+PD43824u_ds0002.mut_burden.tsv
+
+PD43824u_ds0002.muts.tsv
+
+PD43824u_ds0002.muts.vcf.gz
+
+PD43824u_ds0002.muts.vcf.gz.tbi
+
+PD43824u_ds0002.SSC-mismatches-Both.triprofiles.tsv
+
+PD43824u_ds0002.SSC-mismatches-Purine.triprofiles.tsv
+
+PD43824u_ds0002.SSC-mismatches-Pyrimidine.triprofiles.tsv
+
+PD43824u_ds0002.subst_asym_and_rates_binned.pdf
+
+PD43824u_ds0002.subst_asym_binned.tsv
+
+PD43824u_ds0002.subst_asym.pdf
+
+PD43824u_ds0002.subst_asym.tsv
+
+PD43824u_ds0002.trint_counts_and_ratio2genome.tsv
+
+PD43824u_ds0002.trint_subs_obs_corrected.tsv
+
+PD43824u_ds0002.trinuc-profiles.pdf
+
+pyrvsmask.csv
+
+readbundles.csv
+
+variants.csv
+
 
 According to the [NanoSeq GitHub](https://github.com/cancerit/NanoSeq), these
 are the most relevant output files from the pipeline:
@@ -339,7 +423,7 @@ burdens <-
 
 # save burdens
 burdens %>%
-  readr::write_tsv("out/analysis/burdens.tsv")
+  saveRDS("out/analysis/burdens.rds")
 
 # view sample
 burdens %>%
@@ -382,6 +466,59 @@ burdens %>%
     scales = "free",
     space = "free_x"
   ) +
+  theme_bw()
+```
+
+### Average burden per microstructure
+
+```{r plot_avg_burden}
+pdf("test.pdf", width = 7, height = 4)
+burdens %>%
+  dplyr::filter(value_type == "countgenomeyearly") %>%
+  dplyr::group_by(biopsy_phenotype, variant_type) %>%
+  dplyr::mutate(med_cg = median(value)) %>%
+  ggplot(aes(x = tidytext::reorder_within(biopsy_phenotype, by = med_cg, within = variant_type), 
+             y = value, fill = biopsy_phenotype, colour = biopsy_phenotype)) +
+  geom_boxplot(alpha = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.7) +
+  scale_fill_manual(values = phenotype_colours) +  
+  scale_colour_manual(values = phenotype_colours) +
+  facet_wrap(~ variant_type, scales = "free") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  tidytext::scale_x_reordered(guide = guide_axis(angle = -90)) +
+  labs(x = "", y = "mutations per genome per year")
+dev.off()
+```
+
+### Donor age, burdens, counts, and totals vs n pseudobulked samples
+
+```{r plot_age_vs_n_pseudo}
+burdens %>%
+  dplyr::filter(!is.na(donor_age)) %>%
+  ggplot(aes(x = donor_age, y = n_samples_pseudobulked,
+             colour = biopsy_phenotype)) +
+  geom_point() +
+  scale_colour_manual(values = phenotype_colours) +
+  theme_bw()
+```
+
+```{r plot_burden_vs_n_pseudo, fig.height = 4}
+burdens %>%
+  dplyr::filter(!is.na(donor_age), 
+                value_type %in% c("countgenome", "countgenomeyearly")) %>%
+  dplyr::mutate(
+    facet = dplyr::case_when(value_type == "countgenome" ~
+                               "mutations per genome",
+                             value_type == "countgenomeyearly" ~
+                               "mutations per genome per year")) %>%
+  ggplot(aes(x = n_samples_pseudobulked, y = value,
+             colour = biopsy_phenotype)) +
+  geom_point() +
+  scale_colour_manual(values = phenotype_colours) +
+  ggh4x::facet_nested(facet ~ variant_type,
+    scales = "free", space = "free_x", independent = "y") +
+  labs(y = "") +
   theme_bw()
 ```
 
@@ -524,8 +661,6 @@ donor and multiple donors with the same diagnosis. We must control for these
 underlying within-group correlations when generating the model to avoid 
 pseudoreplication.
 
-### Notes from Robinson et al. 
-
 ### Should my variables be fixed or random effects?
 
 > In broad terms, fixed effects are variables that we expect will have an effect
@@ -559,6 +694,51 @@ pseudoreplication.
 > 1. What are you trying to make predictions about?
 >
 > 2. What is just variation (a.k.a. noise) that you need to control for?
+
+First, we set up a linear mixed model with age as a fixed effect and patient as 
+a random effect.
+
+```{r}
+# we treat countgenome as the response variable
+lmm_dat <-
+  burdens %>%
+  dplyr::filter(value_type == "countgenome") %>%
+  dplyr::transmute(genome_wide_count = value, biopsy_id, sample_id, donor_id,
+                   donor_age, variant_type, biopsy_phenotype,
+                   donor_predisposition, donor_diagnosis, donor_sex,
+                   biopsy_coverage, 
+                   donor_predisposition = !is.na(donor_predisposition)) %>%
+  {split(., .$variant_type)}
+
+# initiate list of models
+lmms <- list()
+
+# gwc vs age, with donor as a random effect
+lmms[["gwc_vs_age"]] <-
+  lmm_dat %>%
+  purrr::map(function(df) {
+    nlme::lme(genome_wide_count ~ donor_age,
+              random = ~ 1 | donor_id,
+              data = df, method = "ML")
+  })
+
+# add predisposition as a random effect
+lmms[["gwc_vs_age_w_predisp"]] <-
+  lmm_dat %>%
+  purrr::map(function(df) {
+    nlme::lme(genome_wide_count ~ donor_age + donor_predisposition,
+              random = ~ 1 | donor_id,
+              data = df, method = "ML")
+  })
+
+# compare models
+c("snv", "indel") %>%
+  purrr::map(function(i) {
+    anova(lmms$gwc_vs_age_w_predisp[[i]], lmms$gwc_vs_age[[i]])
+  })
+# it does not improve the fitness of the model
+```
+
 
 ```{r lm}
 models <-
